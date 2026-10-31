@@ -1,0 +1,49 @@
+# Zmiany w skillach 10x — etap 8a: polityka triage'u w wersji 2 i poprawki z retrospektywy
+
+- **Zakres:** gałąź `etap-8a-polityka-triage` od `4aa6d60` (`master` przed zmianą) do zamknięcia zmiany.
+- **Lista skilli:** `git diff --name-only master...HEAD -- skills/`. Sekcje dostają skille `10x-*` z tej listy.
+- **Własne skille:** `skills/retro/` (wyszukiwanie `grep` tylko do odczytu, gdy sesja nie ma narzędzi Grep i Glob). Jego kod jest publikowany wprost, więc nie ma tu sekcji.
+- **Poza skillami:** punkt 8 `docs/zasady-budowy.md` (szybki zestaw testów fabryki po ostatniej rundzie review kodu, przed archiwizacją) i lekcja 5 w `context/foundation/lessons.md`.
+- **Źródło:** poprawki start condition w `10x-impl-review`, pytań w `10x-plan` i lekcji 5 pochodzą z retrospektywy zmiany poprawki-po-retrospektywach (P1–P3). Poprawki `retro` i punktu 8 pochodzą z rozmowy z człowiekiem 2026-10-21 (interwencja I-1 tej zmiany).
+
+Opis nie cytuje skilli. Opis jest dla ludzi: w paczce zmiany w skillach `10x-*` nanosi `scripts/instaluj.py` z przepisu `zmiany-10x.json`.
+
+## 10x-impl-review
+
+- **Co zmienić:**
+  - Warunek startu przed zapisem raportu pierwszej rundy działa tak samo jak w `10x-plan-review`: commit „stan przed review” obejmuje folder zmiany i każdy brudny plik w `context/foundation/` z wpisami tej zmiany. Pliki są dodawane po nazwie i wymienione w poleceniu commita, bez dodawania wszystkiego naraz i bez pomijania hooków.
+  - Wpis tej zmiany rozpoznaje się tak samo jak w `10x-plan-review`: dodane i usunięte linie `git diff -U0 HEAD` pliku (dla nieśledzonego pliku cała treść) mają linię `Zmiana: <change-id>` i żadnej linii `Zmiana:` z inną wartością. Linie kontekstu się nie liczą.
+  - Dalsza część warunku (zapamiętany wynik `git status --porcelain` i jego użycie w kroku poprawek) bez zmian.
+  - Kroki triage'u zgodne z polityką w wersji 2 (`references/triage-policy.md`, wspólna dla obu skilli review):
+    - instrukcje agenta triage'u: przy zapętleniu (E4) uwagi zapętlonego mechanizmu dalej dostają eskalację E4 we własnej linii, ale runda ma jedno wspólne pytanie o podejście zamiast osobnego pytania przy każdej uwadze; przy trzeciej rundzie (E6) uwagi są rozstrzygane dalszymi regułami i poprawiane, a runda dostaje jedno pytanie E6; uwagi o tym samym miejscu dostają jedną decyzję, a uwaga dołączona powtarza decyzję głównej z dopiskiem `razem z F<n>:`;
+    - format odpowiedzi agenta triage'u: blok każdej uwagi bez zmian, bez linii z innym podejściem; po blokach uwag najwyżej jeden blok `Approach question (E4|E6)` z polami `Covers`, `Options`, `Reviewer choice` i `To human`; linia bloku nie zaczyna się od `F<cyfry>:`;
+    - zapis decyzji: w `## Decyzje triage` dodatkowa linia `Pytanie o podejście` (recenzent, autor, kto rozstrzyga); w `## Wymaga Twojej decyzji` jeden wpis na rundę dla pytania o podejście, w postaci zwykłego wpisu z review z `F<n>` pierwszej objętej uwagi; uwagi objęte pytaniem nie mają osobnych wpisów;
+    - krok poprawek: gdy pytanie E4 nie idzie do człowieka, osobny świeży agent (autor) wybiera opcję bez znajomości wyboru recenzenta; ta sama opcja oznacza zastosowanie podejścia i kolejną rundę review, inna opcja oznacza pytanie do człowieka i STOP; przy E6 poprawki są stosowane i sprawdzane, a potem następuje STOP bez rundy 4; dotychczasowe przepisywanie każdej poprawki trzeciej rundy na eskalację E6 znika, a jego miejsce zajmuje dopisanie brakującego pytania E6 przez sesję;
+    - komunikat końcowy wymienia pytania o podejście, a triage ręczny zadaje pytanie o podejście raz dla wszystkich objętych uwag.
+- **Dlaczego:** w zmianie poprawki-po-retrospektywach review kodu commitował tylko folder zmiany, więc wpisy tej zmiany w `decisions.md` zostawały brudne, a każda automatyczna poprawka stawała się eskalacją. `10x-plan-review` miał już poprawioną regułę, a te dwa skille opisywały ten sam krok inaczej. Polityka triage'u w wersji 2: we wzorcu 19 uwag 11 z 13 eskalacji było zbędnych, głównie z reguł o zapętleniu i trzeciej rundzie, a w trzech ostatnich zmianach 14 z 16 eskalacji skończyło się przyjęciem rekomendacji (`docs/spec.md`, etap 8; D-021, D-022).
+- **Zależności:** pole `Zmiana: <change-id>` we wpisach `context/foundation/decisions.md` (format dziennika decyzji skilla `intent`). Test `triage` z testów fabryki: prompt powstaje z sekcji `SKILL.md` między nagłówkami `### Triage sub-agent` i `### Recording the decisions` (nagłówków nie wolno zmienić), a decyzje czyta wyrażenie `DECISION` w `scripts/evallib.py`, które łapie tylko linie `F<n>: AUTO-…`. Walidator `skills/intent/scripts/check_intent.py` (`REVIEW_ENTRY`) przyjmuje wpis pytania o podejście bez zmian, bo ma postać wpisu z review.
+- **Jak sprawdzić:** warunek startu w obu skillach review czyta się jako ta sama reguła; zmiana z niezacommitowanym wpisem w `decisions.md` tej zmiany dostaje commit „stan przed review” z tym plikiem. `diff skills/10x-impl-review/references/triage-policy.md skills/10x-plan-review/references/triage-policy.md` nic nie zwraca; `git diff master...HEAD -- skills/10x-impl-review/references/triage-policy.md skills/10x-plan-review/references/triage-policy.md | grep -E '^[-+]- \*\*E[1235]\.'` nic nie zwraca; `grep -n 'Other approach:' skills/10x-impl-review/SKILL.md skills/10x-plan-review/SKILL.md` nic nie zwraca.
+
+## 10x-plan-review
+
+- **Co zmienić:**
+  - Kroki triage'u zgodne z polityką w wersji 2 (`references/triage-policy.md`, wspólna dla obu skilli review):
+    - instrukcje agenta triage'u: przy zapętleniu (E4) uwagi zapętlonego mechanizmu dalej dostają eskalację E4 we własnej linii, ale runda ma jedno wspólne pytanie o podejście zamiast osobnego pytania przy każdej uwadze; przy trzeciej rundzie (E6) uwagi są rozstrzygane dalszymi regułami i poprawiane, a runda dostaje jedno pytanie E6; uwagi o tym samym miejscu dostają jedną decyzję, a uwaga dołączona powtarza decyzję głównej z dopiskiem `razem z F<n>:`;
+    - format odpowiedzi agenta triage'u: blok każdej uwagi bez zmian, bez linii z innym podejściem; po blokach uwag najwyżej jeden blok `Approach question (E4|E6)` z polami `Covers`, `Options`, `Reviewer choice` i `To human`; linia bloku nie zaczyna się od `F<cyfry>:`;
+    - zapis decyzji: w `## Decyzje triage` dodatkowa linia `Pytanie o podejście` (recenzent, autor, kto rozstrzyga); w `## Wymaga Twojej decyzji` jeden wpis na rundę dla pytania o podejście, w postaci zwykłego wpisu z review z `F<n>` pierwszej objętej uwagi; uwagi objęte pytaniem nie mają osobnych wpisów;
+    - krok poprawek planu: gdy pytanie E4 nie idzie do człowieka, osobny świeży agent (autor), który czyta plan i jego skrót zamiast diffu kodu, wybiera opcję bez znajomości wyboru recenzenta; ta sama opcja oznacza zastosowanie podejścia i kolejną rundę review, inna opcja oznacza pytanie do człowieka i STOP; przy E6 poprawki są stosowane i sprawdzane, a potem następuje STOP bez rundy 4; dotychczasowe przepisywanie każdej poprawki trzeciej rundy na eskalację E6 znika, a jego miejsce zajmuje dopisanie brakującego pytania E6 przez sesję;
+    - komunikat końcowy wymienia pytania o podejście, a triage ręczny zadaje pytanie o podejście raz dla wszystkich objętych uwag.
+- **Dlaczego:** Polityka triage'u w wersji 2: we wzorcu 19 uwag 11 z 13 eskalacji było zbędnych, głównie z reguł o zapętleniu i trzeciej rundzie, a w trzech ostatnich zmianach 14 z 16 eskalacji skończyło się przyjęciem rekomendacji (`docs/spec.md`, etap 8; D-021, D-022).
+- **Zależności:** Test `triage` z testów fabryki: prompt powstaje z sekcji `SKILL.md` między nagłówkami `### Triage sub-agent` i `### Recording the decisions` (nagłówków nie wolno zmienić), a decyzje czyta wyrażenie `DECISION` w `scripts/evallib.py`, które łapie tylko linie `F<n>: AUTO-…`. Walidator `skills/intent/scripts/check_intent.py` (`REVIEW_ENTRY`) przyjmuje wpis pytania o podejście bez zmian, bo ma postać wpisu z review.
+- **Jak sprawdzić:** `diff skills/10x-impl-review/references/triage-policy.md skills/10x-plan-review/references/triage-policy.md` nic nie zwraca; `git diff master...HEAD -- skills/10x-impl-review/references/triage-policy.md skills/10x-plan-review/references/triage-policy.md | grep -E '^[-+]- \*\*E[1235]\.'` nic nie zwraca; `grep -n 'Other approach:' skills/10x-impl-review/SKILL.md skills/10x-plan-review/SKILL.md` nic nie zwraca. Kroki triage'u obu skilli review mówią o jednym pytaniu na rundę, recenzencie i autorze oraz łączeniu uwag to samo co polityka.
+
+## 10x-plan
+
+- **Co zmienić:**
+  - Skill nie ma już minimalnej liczby pytań. Z komunikatu startowego, kroku rozpoznania materiałów wejściowych, oceny złożoności, kroku zadawania pytań, reguły krytycznej i wytycznej o pytaniach znikają tabele i zakresy liczby pytań oraz zdania, które każą zadać ich określoną liczbę.
+  - Zostaje jedna zasada w każdym z tych miejsc: skill pyta o każdą otwartą sprawę kosztu, zakresu i zasad, po 1-4 pytania w rundzie, i o nic więcej. Gdy żadna sprawa nie jest otwarta, pisze plan bez pytań. Pytania o kod nadal trafiają do `## Decyzje planu`.
+  - Ocena złożoności zostaje jako informacja dla człowieka, bez pytania o jej potwierdzenie. Zarys faz też jest tylko tekstem, a plan powstaje od razu; człowiek poprawia fazy w review planu.
+  - Zostają: pytanie przy briefie z niską pewnością, pytanie o wybór podejścia, gdy kilka jest równie dobrych, format opcji z rekomendacją, zaletą i kosztem.
+- **Dlaczego:** w zmianie poprawki-po-retrospektywach skill pytał, bo musiał dobić do minimum, choć research rozstrzygnął już wszystkie sprawy, a człowiek wybierał rekomendowane opcje. Pytania potwierdzające złożoność i fazy też nie zmieniały planu.
+- **Zależności:** brak.
+- **Jak sprawdzić:** polecenie `grep` z kontraktu fazy 1, punkt 2 w `context/changes/etap-8a-polityka-triage/plan.md` nic nie zwraca dla `skills/10x-plan/SKILL.md`; kroki z pytaniami mówią, kiedy skill pyta, a kiedy nie.

@@ -1,0 +1,8 @@
+{
+  "protected": [".env", ".env.*", "**/secrets/**", ".github/workflows/**"],
+  "secret_allow": [],
+  "fast_check": null,
+  "fast_check_include": [],
+  "allowed_domains": ["registry.npmjs.org", "github.com", "*.github.com", "*.githubusercontent.com"],
+  "allow_write": []
+}

@@ -1,0 +1,20 @@
+{
+  "name": "fabryka",
+  "version": "1.0.0",
+  "description": "Paczka 1.0 laboratorium fabryka: autopilot zmian, start projektu, skille intent, guardrails i fabryka oraz hook startu sesji.",
+  "author": {
+    "name": "autorzy paczki"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -B \"${CLAUDE_PLUGIN_ROOT}/scripts/hook_start_sesji.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
