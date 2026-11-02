@@ -70,8 +70,16 @@ For later work in that project, write (in Polish) „zrób zmianę: <what you wa
 
 ## Changelog
 
-### 1.1.0 — 2026-11-01
-One access session for the whole roadmap right after the start, tests with local services in the CI of the branch, the current plan phase in the autopilot output, buttons in the start conversation and package files without lab-only wording.
+### 1.1.0 — 2026-11-02
+What changed since 1.0:
+- You set up access to services once, right after the project start, for the whole roadmap. You do one thing at a time and see it confirmed before the next one. Accounts, logins and keys you already have are skipped. Roadmap slices no longer ask you for this access.
+- For a token that a service can create from its command line, the session gives you a ready command for a regular Terminal.
+- You save each key with one ready command. It asks for the value, does not show it and stores it in `~/.secrets/<project>/`.
+- You no longer check each slice in the browser. You look at the app once, when the roadmap is done.
+- Tests that need local services, such as a database in a container, run in GitHub CI on the slice branch before the merge.
+- The autopilot output shows which step and which plan phase is running, e.g. „faza 2 z 4”.
+- The start conversation asks with buttons, every question shows what it is about, and it asks whether the app should run in production.
+- Agent steps no longer use your personal Claude Code settings (`~/.claude/settings.json`), but they still use your skills. When the project's `.claude/settings.json` or `.claude/settings.local.json` lets commands run outside the sandbox, the autopilot stops and tells you to remove that setting.
 
 ### 1.0.0 — 2026-10-31
 First public release: autopilot for changes, project start from an empty folder, roadmap slices, deployment as a roadmap item, the `intent` skill, shorter path with situational research and frame, review triage, guardrails and the installer with backup and check.
