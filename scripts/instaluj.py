@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install package 1.0 (paczka 1.0) into the Claude Code config folder.
+"""Install the package (paczka, version in VERSION) into the Claude Code config folder.
 
 Run from the package folder:
 
@@ -33,10 +33,15 @@ nowe-pliki.txt with the relative paths of the files it creates), then the
 files to <config>/skills (the results of the recipe, every file of skills/
 of the package and, when --kurs is another folder, the unchanged files of
 the skill folders the package touches), then settings.json atomically with
-the SessionStart hook of scripts/hook_start_sesji.py and the entry
-sandbox.excludedCommands of scripts/autopilot.py of the package. A file is
-written only when it is missing or has other content; an entry is added only
-when the same command is not there yet, so a second run adds nothing.
+the SessionStart hook of scripts/hook_start_sesji.py, the entry
+sandbox.excludedCommands of scripts/autopilot.py of the package and the read
+rules Read, Glob and Grep of //<package folder>/** at the end of
+permissions.allow (so the session reads the package's instructions without
+asking and cannot write there; no permissions.additionalDirectories, which
+would also let it write). A file is written only when it is missing or has
+other content; an entry is added only when the same command is not there yet
+(a read rule: when no rule of its tool in permissions.allow has a //<path>/**
+whose realpath is the package folder), so a second run adds nothing.
 Just before settings.json is written its bytes are read again; when they
 changed during the run, the installer stops with exit code 2 and leaves the
 file as it is. A link (settings.json, a skill folder) stays a link and its
@@ -262,14 +267,27 @@ def load_settings(path):
     return data, raw, None
 
 
+READ_TOOLS = ("Read", "Glob", "Grep")
+
+
+def read_rule(tool, package):
+    """The read rule of `tool` for the package folder: //<realpath>/**."""
+    return f"{tool}(/{os.path.realpath(package)}/**)"
+
+
 def settings_additions(settings, package):
-    """([(name, command)] of the entries still missing, problem or None)."""
+    """([(name, value)] of the entries still missing, problem or None). The
+    read rule of a tool counts as present when a rule of that tool in
+    permissions.allow has a //<path>/** whose realpath is the package folder."""
     hooks = settings.get("hooks", {})
     sandbox = settings.get("sandbox", {})
+    permissions = settings.get("permissions", {})
     if not isinstance(hooks, dict) or not isinstance(hooks.get("SessionStart", []), list):
         return [], "settings.json: \"hooks\" albo \"hooks.SessionStart\" ma nieznaną postać; popraw plik"
     if not isinstance(sandbox, dict) or not isinstance(sandbox.get("excludedCommands", []), list):
         return [], "settings.json: \"sandbox\" albo \"sandbox.excludedCommands\" ma nieznaną postać; popraw plik"
+    if not isinstance(permissions, dict) or not isinstance(permissions.get("allow", []), list):
+        return [], "settings.json: \"permissions\" albo \"permissions.allow\" ma nieznaną postać; popraw plik"
     if any(isinstance(g, dict) and not isinstance(g.get("hooks", []), list) for g in hooks.get("SessionStart", [])):
         return [], "settings.json: grupa w \"hooks.SessionStart\" ma nieznaną postać; popraw plik"
     commands = [h.get("command") for group in hooks.get("SessionStart", []) if isinstance(group, dict)
@@ -279,6 +297,13 @@ def settings_additions(settings, package):
         missing.append(("hooks.SessionStart", hook_command(package)))
     if autopilot_command(package) not in sandbox.get("excludedCommands", []):
         missing.append(("sandbox.excludedCommands", autopilot_command(package)))
+    present = set()
+    for rule in permissions.get("allow", []):
+        tool, _, rest = rule.partition("(") if isinstance(rule, str) else ("", "", "")
+        folder = rest[1:-4] if rest.startswith("//") and rest.endswith("/**)") and ".." not in rest else ""
+        if os.path.isabs(folder) and os.path.realpath(folder) == os.path.realpath(package):
+            present.add(tool)
+    missing += [("permissions.allow", read_rule(tool, package)) for tool in READ_TOOLS if tool not in present]
     return missing, None
 
 
@@ -287,6 +312,8 @@ def add_entries(settings, missing):
         if name == "hooks.SessionStart":
             settings.setdefault("hooks", {}).setdefault("SessionStart", []).append(
                 {"hooks": [{"type": "command", "command": command}]})
+        elif name == "permissions.allow":
+            settings.setdefault("permissions", {}).setdefault("allow", []).append(command)
         else:
             settings.setdefault("sandbox", {}).setdefault("excludedCommands", []).append(command)
 

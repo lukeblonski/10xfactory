@@ -78,7 +78,7 @@ One path starts a change: `/intent <change-id> <description or draft>`. The skil
 12. **Finish.** Print a short summary and nothing after it:
     - the number of criteria and the risk level with its reason;
     - the line `Wymaga Twojej decyzji:` followed by the entries of that section, one line each, or by the single line `- nic nie czeka na Ciebie` when the section has none;
-    - the last line: `Następny krok: python3 scripts/autopilot.py <change-id> (ręcznie: /10x-research <change-id>)`.
+    - the last line: `Następny krok: po zatwierdzeniu intencji łańcuch uruchamia sesja (ręcznie: /10x-research <change-id>)`.
 
 ## Example
 
@@ -86,7 +86,7 @@ One path starts a change: `/intent <change-id> <description or draft>`. The skil
 /intent wolne-biurka Pracownik nie wie, które biurka są jutro wolne. Chcę listę wolnych biurek na wybrany dzień.
 ```
 
-Creates `context/changes/wolne-biurka/change.md` through `/10x-new`, writes the block with criteria such as `- **W1.** freeDesks("2026-11-02") zwraca tylko biurka bez rezerwacji na ten dzień.` checked by `npm test`, sets `**Ryzyko.** Niskie. …`, and ends with `Następny krok: python3 scripts/autopilot.py wolne-biurka (ręcznie: /10x-research wolne-biurka)`.
+Creates `context/changes/wolne-biurka/change.md` through `/10x-new`, writes the block with criteria such as `- **W1.** freeDesks("2026-11-02") zwraca tylko biurka bez rezerwacji na ten dzień.` checked by `npm test`, sets `**Ryzyko.** Niskie. …`, and ends with `Następny krok: po zatwierdzeniu intencji łańcuch uruchamia sesja (ręcznie: /10x-research wolne-biurka)`.
 
 ## What this skill does NOT do
 

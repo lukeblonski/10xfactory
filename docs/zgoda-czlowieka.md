@@ -2,7 +2,7 @@
 
 Ten plik zmienia tylko człowiek. Krok PR retrospektywy (`skills/retro/references/pr.md`) czyta jego wersję z `origin/master`, a nie z gałęzi PR-a, więc PR nie osłabi listy, którą sam jest sprawdzany.
 
-Poprawka skilla z retrospektywy czeka na zgodę człowieka, gdy jej diff dotyka ścieżki z `## Ścieżki`, wychodzi poza `## Zakres poprawki skilla`, usuwa krok łańcucha albo zmienia skill z płatnym testem. Pozostałe poprawki scala krok PR, gdy przejdą testy skilli i recenzent w osobnej sesji (D-100, D-101, D-105).
+Krok PR retrospektywy niczego nie scala sam i nie uruchamia sam płatnych testów: każda poprawka skilla z retrospektywy czeka na człowieka z powodem „automatyczne scalanie wyłączone”, także gdy przejdą testy skilli i recenzent w osobnej sesji (decyzja człowieka 2026-11-02, zmienia D-426). Opis PR-a podaje dodatkowe powody: diff dotyka ścieżki z `## Ścieżki`, wychodzi poza `## Zakres poprawki skilla`, usuwa krok łańcucha albo zmienia skill z listy `## Płatne testy skilli`. Scala człowiek (D-100, D-101).
 
 ## Ścieżki
 
@@ -37,10 +37,19 @@ Pozycja to plik albo katalog. Katalog kończy się `/` i obejmuje wszystko pod n
 - `skills/10x-impl-review/references/triage-policy.md` — polityka triage'u, oryginał.
 - `skills/10x-plan-review/references/triage-policy.md` — polityka triage'u, kopia.
 
+### Zabezpieczenia aplikacji
+
+- `skills/guardrails/` — cały skill zabezpieczeń aplikacji: szablony (CI gałęzi z linią `# autopilot: ci-galezi` w `templates/ci.yml`, na które autopilot czeka przed scaleniem, piaskownica i hooki w `templates/guardrails.json`, agent weryfikujący w `templates/verifier.md`), instalator `scripts/install.py`, który zapisuje piaskownicę i hooki aplikacji, same hooki w `scripts/hooks/` oraz `SKILL.md`.
+
 ### Ta lista
 
 - `docs/zgoda-czlowieka.md` — lista, którą krok PR sprawdza każdą poprawkę.
-- `docs/umowa-obserwatora.md` — umowa obserwatora; zmienia się tylko przez PR zatwierdzony przez człowieka.
+- `docs/obserwator.md` — umowa, granice i polecenie obserwatora; zmienia się tylko przez PR zatwierdzony przez człowieka.
+- `scripts/hook_obserwator.py` — hak obserwatora: kiedy obserwator rusza, jego uprawnienia i granice.
+- `scripts/obserwator_tydzien.py` — zadanie tygodniowe obserwatora: źródła w sieci i uprawnienia przebiegu.
+- `scripts/z_master.py` — program uruchamiający kod obserwatora z gałęzi `master`: który kod hak uruchamia.
+- `scripts/zapis_decyzji.py` — hak zapisu decyzji sesji rozmowy obserwatora: kiedy zatrzymuje obserwatora i jakim modelem.
+- `scripts/instaluj_obserwatora.py` — polecenie instalacji sesji rozmowy obserwatora: jej piaskownica, zakazy zapisu i odczytu oraz hak zapisu decyzji.
 
 ## Zakres poprawki skilla
 
@@ -50,7 +59,7 @@ PR z poprawką skilla może zmieniać tylko pliki pod tymi ścieżkami:
 - `docs/zmiany-10x/`
 - `context/foundation/lessons.md`
 
-Plik spoza nich (np. `scripts/`, `CLAUDE.md`, `.claude/`, `context/foundation/decisions.md`) oznacza, że PR czeka na człowieka. Wpis w `context/foundation/decisions.md` dopisuje sam skrypt kroku PR jako ostatni commit gałęzi, tuż przed scaleniem, więc nie liczy się do zakresu.
+Plik spoza nich (np. `scripts/`, `CLAUDE.md`, `.claude/`, `context/foundation/decisions.md`) oznacza, że PR czeka na człowieka. Tak samo każdy plik w `skills/` inny niż `.md` (skrypty, hooki, dane skilli): kod skilla biegnie w testach i w aplikacjach, więc jego zmiana idzie do człowieka jak `skills/guardrails/` (decyzja człowieka przy impl-review-6 F1 zmiany paczka-1-1). Wpis w `context/foundation/decisions.md` dopisuje sam skrypt kroku PR jako ostatni commit gałęzi, tuż przed scaleniem, więc nie liczy się do zakresu.
 
 ## Usunięcie kroku łańcucha
 
@@ -58,7 +67,7 @@ Poprawka usuwa krok łańcucha, gdy w `git diff --name-status` PR-a plik w `skil
 
 ## Płatne testy skilli
 
-Poprawka skilla z tej listy czeka na człowieka z decyzją na jedno słowo, bo jego test zachowania kosztuje. Koszt to średnia z `docs/testy-fabryki.md`.
+Poprawka skilla z tej listy czeka na człowieka z decyzją na jedno słowo o płatnym teście, niezależnie od jego kosztu: krok PR sam żadnego płatnego testu nie uruchamia (decyzja człowieka 2026-11-02). Po zgodzie człowiek uruchamia `python3 scripts/retro_pr.py <change-id> --paid-tests P<n>`; koszt testu trafia do komentarza PR-a, do podsumowania kroku PR i do `## Wynik kroku PR` przebiegu. Koszt na liście to średnia z `docs/testy-fabryki.md` (`chain` ma własny limit 10 USD).
 
 - `skills/10x-new/` → `chain` (ok. 3 USD)
 - `skills/10x-plan/` → `chain` (ok. 3 USD)

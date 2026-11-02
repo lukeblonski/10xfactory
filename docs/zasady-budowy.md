@@ -52,7 +52,7 @@ Format jednego wpisu:
 **Pytania do człowieka.** Każde pytanie agenta do człowieka i każde pytanie rozstrzygnięte przez agenta według reguły „kiedy pytać człowieka” w `CLAUDE.md` zostawia jedną linię w sekcji `## Pytania do człowieka` w `change.md` zmiany. To osobna sekcja `## …`, bo `/intent` przepisuje tylko `## Notes`. Linię dopisuje agent, który pytał, zaraz po odpowiedzi, i commituje `change.md`. Format linii, pola w tej kolejności, rozdzielone ` · `:
 
 ```
-- rodzaj: <r> · krok: <k> · pytanie: <p> · rekomendacja: <tekst> · wybór: rekomendacja|inny: <tekst> · rozstrzygnął: człowiek|agent
+- rodzaj: <r> · krok: <k> · pytanie: <p> · rekomendacja: <tekst> · wybór: rekomendacja|inny: <tekst> · rozstrzygnął: człowiek|agent|obserwator
 ```
 
 - `rodzaj` to jeden z sześciu: `spór recenzenta z autorem`, `eskalacja`, `płatny przebieg`, `zakres`, `kryterium`, `inne`.
@@ -60,7 +60,7 @@ Format jednego wpisu:
 - Pytanie o podejście (E4) z przeglądu planu albo kodu, które trafia do człowieka, ma rodzaj `eskalacja`.
 - `krok` to krok łańcucha, w którym padło pytanie (np. `intent`, `plan`, `plan-review`, `implement`).
 - `wybór` to `rekomendacja`, gdy rozstrzygnięcie jest zgodne z rekomendacją agenta, albo `inny: <tekst>` z tym, co wybrał człowiek.
-- `rozstrzygnął` to `człowiek` albo `agent`. Przy `agent` pole `wybór` to zawsze `rekomendacja`.
+- `rozstrzygnął` to `człowiek`, `agent` albo `obserwator`. Przy `agent` i `obserwator` pole `wybór` to zawsze `rekomendacja`.
 
 ## 7. Najpierw odjęcie
 
@@ -82,8 +82,8 @@ To samo dotyczy nowej pozycji w planie: etapu, kroku albo narzędzia. Zanim ją 
 Propozycje z `Miejscem docelowym` w `skills/` i `context/foundation/lessons.md`:
 
 - Po scaleniu i pushu zmiany przechodzą krokiem PR: `python3 scripts/retro_pr.py <change-id>` (opis: `skills/retro/references/pr.md`). Każda dostaje własny PR. Krok uruchamia sam autopilot (`scripts/autopilot.py`) po pushu i wypisuje listę propozycji ze stanem, bez pytania; poza autopilotem uruchamia go człowiek.
-- Skrypt scala PR sam, gdy przejdą testy skilli i recenzent w osobnej sesji `claude -p`. Wpis „przyjęta” do dziennika dopisuje skrypt w tym samym PR-ze.
-- Człowiek zatwierdza poprawkę, która dotyka ścieżki z `docs/zgoda-czlowieka.md`, usuwa krok łańcucha, wychodzi poza zakres poprawki skilla albo zmienia skill z płatnym testem. Taki PR czeka otwarty z powodem w opisie.
+- Skrypt nie scala PR-a sam, także gdy przejdą testy skilli i recenzent w osobnej sesji `claude -p` (decyzja człowieka 2026-11-02). Wpis „przyjęta” do dziennika dopisuje skrypt w tym samym PR-ze dopiero przy scaleniu przez `--paid-tests`, które uruchamia człowiek.
+- Człowiek zatwierdza poprawkę, która dotyka ścieżki z `docs/zgoda-czlowieka.md`, usuwa krok łańcucha, wychodzi poza zakres poprawki skilla albo zmienia skill z płatnym testem. Krok PR niczego nie scala sam i nie uruchamia sam płatnych testów, więc każdy PR retrospektywy czeka otwarty z powodem w opisie, a scala go człowiek (decyzja człowieka 2026-11-02, zmienia D-426).
 
 Pozostałe propozycje (`docs/`, `CLAUDE.md`, hooki) i PR-y czekające na człowieka:
 

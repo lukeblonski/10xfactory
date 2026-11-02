@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Retrospective PR step: turn each proposal of a merged change's retro.md
 whose target lies in skills/ or is context/foundation/lessons.md into a pull
-request, and merge it when every gate passes.
+request that always waits for a human: the step merges no PR by itself and
+runs no paid test by itself (decision of the human 2026-11-02, impl-review-7
+F1, F2, F4 of paczka-1-1; AUTO_MERGE_OFF).
 
 Run it from the main folder of the repo after the change was archived,
 merged into master with --ff-only and pushed. A proposal is a candidate when
@@ -13,50 +15,64 @@ potwierdzenie odrzucenia": no session, no branch and no PR; a human confirms
 the rejection. For every other candidate, in the order of the numbers:
 
 1. skip it when branch retro/<change-id>-p<n> has a PR in any state;
-2. add a worktree from origin/master in a temporary folder;
-3. let a fresh `claude -p` session (the author) apply the proposal;
-4. commit the result; an empty diff is an error without a PR;
-5. check the diff against docs/zgoda-czlowieka.md: scope, the list of paths
-   that need a human, removal of a chain step;
+2. make a fresh copy of origin/master (git archive, checked file by file) in a
+   temporary folder;
+3. let a fresh `claude -p` session (the author) apply the proposal there;
+4. build the commit of the copy's files in the main repo (a temporary index,
+   commit-tree): after the author nothing runs in its folder, not even git
+   (impl-review-6 F1); an empty diff is an error without a PR;
+5. check the diff (git in the main repo, on the checked commit) against
+   docs/zgoda-czlowieka.md: scope, the list of paths that need a human,
+   removal of a chain step, and any file in skills/ other than .md, which
+   goes to the human too (impl-review-6 F1);
 6. when no gate hit: the deterministic tests (RETRO_PR_VERIFY, default the
-   verify command of CLAUDE.md), then, when they exit 0, a fresh read-only
-   `claude -p` session (the reviewer) with the diff;
-7. note the paid tests of the changed skills;
-8. push the branch and open the PR with the results and a marker;
-9. merge it (squash, the checked head only) when no gate hit, the tests
-   exited 0, the verdict is ZATWIERDZAM, no paid test is needed and
-   origin/master is still the base; the decision-log entry is the last
-   commit of the branch. When `gh pr merge` fails, the step asks
-   `gh pr view --json mergeable,mergeStateStatus`: while GitHub has not
-   computed it yet (UNKNOWN), or computed MERGEABLE after the refusal, it
-   waits (RETRO_PR_MERGE_WAIT seconds, default 10, at most MERGE_TRIES times),
-   fetches origin and merges again with the same --match-head-commit;
-   origin/master moved away from the base, CONFLICTING, another error or the
-   end of the tries is an error line.
+   verify command of CLAUDE.md) in their own fresh copy of the checked commit,
+   under sandbox-exec with verify_profile as an extra layer (not the sandbox
+   of the `claude -p` steps; impl-review-3 F6), then, when they exit 0, a
+   fresh read-only `claude -p` session (the reviewer) with the diff, in
+   another fresh copy;
+7. note the paid tests of the changed skills: they are always the human's
+   decision (`--paid-tests`), whatever they cost;
+8. push the branch and open the PR with the results and a marker; every PR
+   waits for a human with the reason AUTO_MERGE_OFF next to the others, also
+   when the tests and the reviewer passed;
+8a. when, besides AUTO_MERGE_OFF and the paid tests, the only reason to wait
+   is failed deterministic tests, one fresh `claude -p` session (the fixer:
+   the author's flags, the step sandbox through --settings) gets the test
+   output in a fresh copy of the checked commit; the commit of its files,
+   built in the main repo, goes to the PR's branch with a plain push, and
+   every gate of 5-7 runs again on the new head against the same base, with
+   a new body and marker (`gh pr edit`). One try; the PR waits for a human
+   either way (D-427).
 
 After all proposals, every open PR of a branch retro/<change-id>-p<n> of this
 change whose marker has `verify` and a `base` other
-than origin/master moves onto origin/master: `git merge --no-edit
-origin/master` in a worktree on its head, the gates, the deterministic tests
+than origin/master moves onto origin/master: a merge commit of its head and
+origin/master built in the main repo (`git merge-tree --write-tree`,
+`git commit-tree`, no checkout of its files), the gates, the deterministic tests
 and the reviewer again against the new base, a plain push (never --force) and
 a new body with the new marker (`gh pr edit`). Such a PR is never merged here:
 its line starts with "czeka na człowieka — przeniesiony na origin/master". A
-conflict aborts the merge, comments on the PR and leaves the branch and body
+conflict (merge-tree exits non-zero) comments on the PR and leaves the branch and body
 unchanged ("konflikt z origin/master"). A PR whose branch changed after its
 check (the marker's head is not the branch's head) is not moved. A move that
 fails otherwise keeps the PR waiting ("czeka na człowieka — przeniesienie …
 się nie udało") with exit code 1.
 
-When the step merged a PR or wrote to master, it ends with `git pull
+When --paid-tests merged a PR, it ends with `git pull
 --ff-only -q` in the main folder, which has to be on master with no
 uncommitted change to tracked files; the line `master: …` gives the result,
 and a skipped or failed pull is exit code 1.
 
-With --paid-tests P<n> (any candidate, also one for the lessons file: the
-paid tests come from the files its PR changes) it runs the paid tests named in the marker of that proposal's open PR (RETRO_PR_EVALS, default
+With --paid-tests P<n>, run by the human (any candidate, also one for the
+lessons file: the paid tests come from the files its PR changes) it runs the paid tests named in the marker of that proposal's open PR (RETRO_PR_EVALS, default
 scripts/run_evals.sh) with the main folder switched to the PR's head,
-comments the result on the PR and merges as in step 9 when they exit 0;
-a merge ends with the same `git pull --ff-only`. A PR whose marker has
+comments the result and the cost on the PR and, when they exit 0, merges it
+(squash, the checked head only, the decision-log entry with the result and the
+cost as the last commit of the branch; a failed `gh pr merge` is retried while
+GitHub reports UNKNOWN or MERGEABLE, at most MERGE_TRIES times, with
+RETRO_PR_MERGE_WAIT seconds between tries); a merge ends with the same
+`git pull --ff-only`. A PR whose marker has
 another base is refused (D-102); the moved PRs above have origin/master as
 their base. One exception (D-303): when origin/master moved from the
 marker's base (or, during the test or a merge retry, from the base the step
@@ -71,22 +87,27 @@ skills come from origin/master, never from the PR's branch. The step is
 described in skills/retro/references/pr.md.
 
 Usage: python3 scripts/retro_pr.py <change-id> [--paid-tests P<n>]
-Exit code 0 when every proposal was handled (merged, waiting for a human or
-skipped), 1 when at least one ended in an error without a PR (or a failed
+Exit code 0 when every proposal was handled (waiting for a human or skipped;
+merged only with --paid-tests), 1 when at least one ended in an error without a PR (or a failed
 merge or move) or `git pull --ff-only` was skipped or failed, 2 when the step cannot start: git
 fetch failed, master differs from origin/master, a change is in progress in context/changes/, not exactly one
 retro.md, a broken list or prompt file, or a PR whose marker does not match.
 """
 
 import argparse
+import contextlib
 import datetime
+import hashlib
+import io
 import json
 import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 
@@ -96,17 +117,60 @@ LESSONS = "context/foundation/lessons.md"
 NEVER_MERGED = ("docs/",)
 DECISIONS = "context/foundation/decisions.md"
 DECISION_FILES = (DECISIONS, "context/foundation/limitations.md", "context/foundation/decisions-archive.md")
-CATEGORIES = ("Kryteria przeglądu", "Testy skilli", "Polityka triage'u", "Ta lista")
+CATEGORIES = ("Kryteria przeglądu", "Testy skilli", "Polityka triage'u", "Zabezpieczenia aplikacji", "Ta lista")
 VERIFY = ("python3 -m unittest discover -s scripts -p 'test_*.py' && python3 scripts/check_refs.py"
           " && python3 scripts/check_no_copy.py")
 EVALS = "scripts/run_evals.sh"
+# The cost of a paid test from the evals-*.md files of its --out folder (`budget`, D-426).
+EVALLIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "evallib.py")
+# Automatic merging of the retrospective PRs is off (decision of the human 2026-11-02, impl-review-7 F1, F2, F4 of
+# paczka-1-1; limitation D-432 in context/foundation/limitations.md): every PR waits for a human with this reason next to
+# the others, also after the tests and the reviewer passed, so its list of reasons is never empty, and the step runs
+# no paid test by itself (only --paid-tests, started by the human).
+AUTO_MERGE_OFF = "automatyczne scalanie wyłączone"
+# The time limit of one run of paid tests in seconds (impl-review F9 of paczka-1-1): a hang would block the step;
+# past it the exit is 124 and the PR waits for a human.
+PAID_TIMEOUT = 5400
+# Seconds between SIGTERM and SIGKILL to the process group of paid tests past PAID_TIMEOUT (impl-review-2 F4 of
+# paczka-1-1): the tests and their `claude -p` sessions stop with the runner, so none keeps spending. 30 seconds leave
+# the cleanup traps of the tests (temporary clones of eval_chain.sh) time to finish (impl-review-3 F10). Commands that
+# the Bash tool of a paid session started run in their own session, outside the group, and may outlive the stop; they
+# spend nothing, because the `claude -p` sessions are in the group.
+GROUP_GRACE = 30
 # The autopilot's run record (context/przebiegi/<id>.md): a commit that changes only this folder does not
 # make another base for a paid test (D-303).
 RUNS_DIR = "context/przebiegi/"
 SESSION_FLAGS = ["--model", "opus", "--restricted", "--strict-mcp-config", "--max-budget-usd", "2",
                  "--output-format", "stream-json", "--verbose", "--no-session-persistence"]
-AUTHOR_TOOLS = ["--tools", "Read,Grep,Glob,Edit,Write", "--permission-mode", "acceptEdits"]
-REVIEWER_TOOLS = ["--tools", "Read,Grep,Glob"]
+# The places with keys that no session of the step reads (impl-review F3 of paczka-1-1): the fixed places of a
+# `claude -p` step of the autopilot (KEY_FOLDERS and KEY_FILES of scripts/autopilot.py, which imports this module;
+# a test keeps both lists equal), as rules of --disallowedTools, and no read outside the folder of the session.
+KEY_FOLDERS = ("~/.secrets", "~/.ssh", "~/.aws", "~/.gnupg", "~/.config", "~/.docker", "~/.supabase", "~/.wrangler",
+               "~/Library/Preferences/.wrangler", "~/Library/Keychains")
+KEY_FILES = ("~/.netrc", "~/.npmrc", "~/.git-credentials")
+# The files of git under ~/.config that the sandbox of the deterministic tests reads again (READ_AGAIN of
+# scripts/autopilot.py).
+READ_AGAIN = ("~/.config/git/ignore", "~/.config/git/config", "~/.config/git/attributes")
+KEY_DENY = ["--disallowedTools", ",".join([f"Read({path}/**)" for path in KEY_FOLDERS]
+                                          + [f"Read({path})" for path in KEY_FILES])]
+READ_SETTINGS = {"permissions": {"blockReadsOutsideWorkingDirectories": True}}
+EDIT_TOOLS = ["--tools", "Read,Grep,Glob,Edit,Write", "--permission-mode", "acceptEdits"] + KEY_DENY
+AUTHOR_TOOLS = EDIT_TOOLS + ["--settings", json.dumps(READ_SETTINGS)]
+# The fixer of failed tests (D-427): the author's tools and read limits, in the sandbox of a `claude -p` step of the
+# autopilot (the human's condition for P34).
+FIXER_SETTINGS = dict(READ_SETTINGS, sandbox={"enabled": True, "failIfUnavailable": True,
+                                              "allowUnsandboxedCommands": False})
+FIXER_TOOLS = EDIT_TOOLS + ["--settings", json.dumps(FIXER_SETTINGS)]
+REVIEWER_TOOLS = ["--tools", "Read,Grep,Glob"] + KEY_DENY + ["--settings", json.dumps(READ_SETTINGS)]
+# The deterministic tests of a proposal may run code an agent wrote (impl-review-3 F6 of paczka-1-1, decision of the
+# human). They run in a fresh copy of the checked commit, and on top of that under sandbox-exec of macOS with
+# verify_profile, an extra layer, not the sandbox of the `claude -p` steps: it starts from (allow default), so Mach
+# services, osascript, launchctl, open, securityd and local sockets stay open (limitation in
+# context/foundation/limitations.md). RETRO_PR_SANDBOX replaces the program, for the tests; without it the tests
+# fail and the PR waits for the human.
+SANDBOX_EXEC = "/usr/bin/sandbox-exec"
+# A change of a file in skills/ other than .md goes to the human (impl-review-6 F1 of paczka-1-1).
+CODE_REASON = "kod skilla (plik w skills/ inny niż .md, decyzja człowieka)"
 VERDICTS = {"WERDYKT: ZATWIERDZAM": "ZATWIERDZAM", "WERDYKT: ODRZUCAM": "ODRZUCAM"}
 SESSION_TIMEOUT = 1800
 TAIL = 20
@@ -125,7 +189,8 @@ LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
 PAID = re.compile(r"^- `([^`]+)` → `([^`]+)` \(ok\. (\d+(?:,\d+)?) USD\)$")
 DECISION = re.compile(r"^## D-(\d{3,})\b", re.M)
 MARKER = re.compile(r"<!-- retro-pr: (.*?) -->")
-PLACEHOLDER = re.compile(r"\{(change_id|n|proposal|diff)\}")
+PLACEHOLDER = re.compile(r"\{(change_id|n|proposal|diff|tests)\}")
+SPENT = re.compile(r"^wydane: (\d+(?:\.\d+)?)$", re.M)
 
 
 class Stop(Exception):
@@ -295,6 +360,11 @@ def classify(changes, consent, skills, base_texts, head_texts):
         for category, items in consent["paths"].items():
             if any(covers(item, path) for item in items):
                 add(f"lista zgody: {path} ({category})")
+    # impl-review-6 F1 of paczka-1-1 (decision of the human): code in skills/ runs in the tests and the apps, so a
+    # change of any file there other than .md goes to the human, like skills/guardrails/.
+    for path in touched:
+        if path.startswith("skills/") and not path.endswith(".md"):
+            add(f"{CODE_REASON}: {path}")
     for status, paths in changes:
         if status in ("D", "R") and paths[0].startswith("skills/"):
             add(f"krok łańcucha: {paths[0]} {'usunięty' if status == 'D' else 'przeniesiony'}")
@@ -314,6 +384,29 @@ def paid_tests(changes, consent):
         if any(covers(prefix, path) for _, paths in changes for path in paths) and (test, cost) not in found:
             found.append((test, cost))
     return found
+
+
+def paid_total(paid):
+    """The sum of the list averages of (test, cost) pairs."""
+    return sum(cost for _, cost in paid)
+
+
+def only_paid_waiting(paid, waiting):
+    """True when, besides AUTO_MERGE_OFF, the PR waits only for the human's decision on its paid tests: its body
+    gets `## Decyzja do podjęcia`."""
+    return bool(paid) and paid_reason(paid) in waiting and all(
+        reason in (paid_reason(paid), AUTO_MERGE_OFF) for reason in waiting)
+
+
+def tests_reason(verify):
+    return f"testy skilli: kod wyjścia {verify[1].returncode}"
+
+
+def fixable(reasons, verify, waiting, paid=()):
+    """True when, besides AUTO_MERGE_OFF and the human's decision on the paid tests, the only reason to wait is the
+    failed deterministic tests (D-423, D-427)."""
+    rest = [reason for reason in waiting if reason != AUTO_MERGE_OFF and not (paid and reason == paid_reason(paid))]
+    return not reasons and verify is not None and verify[1].returncode != 0 and rest == [tests_reason(verify)]
 
 
 def last_result(stream):
@@ -401,6 +494,92 @@ def run(cmd, cwd, shell=False, timeout=None):
         return subprocess.CompletedProcess(cmd, 124, "", f"timeout after {timeout} s")
 
 
+def sbpl(path):
+    """A path as a string of the sandbox profile language."""
+    return '"' + path.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def verify_profile(wt):
+    """The sandbox profile of the deterministic tests in the fresh copy wt (impl-review-3 F6 of paczka-1-1), an extra
+    layer: no network except localhost and local sockets, no write except the copy, the temporary folders and the
+    devices, no read of the places with keys (KEY_FOLDERS, KEY_FILES) except git's own files. It starts from
+    (allow default), so it is not the sandbox of the `claude -p` steps (see SANDBOX_EXEC)."""
+    home = os.path.expanduser("~")
+    real = os.path.realpath
+    writes = [real(wt), real(tempfile.gettempdir()), "/private/tmp", "/private/var/folders"]
+    lines = ["(version 1)", "(allow default)",
+             "(deny network*)", "(allow network* (remote unix-socket))",
+             '(allow network* (remote ip "localhost:*"))', '(allow network* (local ip "localhost:*"))',
+             "(deny file-write*)",
+             "(allow file-write* " + " ".join(f"(subpath {sbpl(path)})" for path in writes)
+             + ' (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/tty") (regex #"^/dev/fd/"))',
+             "(deny file-read* " + " ".join(
+                 [f"(subpath {sbpl(path.replace('~', home, 1))})" for path in KEY_FOLDERS]
+                 + [f"(literal {sbpl(path.replace('~', home, 1))})" for path in KEY_FILES]) + ")",
+             "(allow file-read* " + " ".join(f"(literal {sbpl(path.replace('~', home, 1))})" for path in READ_AGAIN)
+             + ")"]
+    return "\n".join(lines)
+
+
+def run_verify(command, wt):
+    """The deterministic tests `command` in the fresh copy wt through the shell, under sandbox-exec with
+    verify_profile."""
+    sandbox = os.environ.get("RETRO_PR_SANDBOX") or SANDBOX_EXEC
+    return run([sandbox, "-p", verify_profile(wt), "/bin/sh", "-c", command], wt, timeout=SESSION_TIMEOUT)
+
+
+def group_alive(pgid):
+    """True while some process of the group pgid is still there."""
+    try:
+        os.killpg(pgid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def stop_group(proc, grace):
+    """Stop the whole process group of proc: SIGTERM, up to grace seconds for it to end, then SIGKILL."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except OSError:
+        return
+    end = time.monotonic() + grace
+    while time.monotonic() < end:
+        proc.poll()
+        if not group_alive(proc.pid):
+            return
+        time.sleep(0.1)
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
+def run_group(cmd, cwd, timeout):
+    """Run a shell command like run, in its own process group (impl-review-2 F4 of paczka-1-1): past timeout the
+    whole group stops (stop_group), not only the top process, and the exit is 124."""
+    try:
+        proc = subprocess.Popen(cmd, cwd=cwd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                stdin=subprocess.DEVNULL, text=True, start_new_session=True)
+    except OSError as exc:
+        return subprocess.CompletedProcess(cmd, 127, "", str(exc))
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+    except subprocess.TimeoutExpired:
+        stop_group(proc, GROUP_GRACE)
+    try:
+        out, err = proc.communicate(timeout=GROUP_GRACE)
+    except subprocess.TimeoutExpired:
+        # A process that left the group still holds the output: the step does not wait for it.
+        proc.kill()
+        proc.wait()
+        proc.stdout.close()
+        proc.stderr.close()
+        out, err = "", ""
+    return subprocess.CompletedProcess(cmd, 124, out or "", (err or "") + f"timeout after {timeout} s")
+
+
 def git(cwd, *args, error=Failed):
     result = run(["git", "-c", "core.quotepath=off", *args], cwd)
     if result.returncode != 0:
@@ -444,6 +623,37 @@ def session(prompt, tools, cwd):
     return result.returncode, result.stdout
 
 
+def paid_cost(folder):
+    """(cost in USD, None) of the evals-*.md files in folder, from `python3 scripts/evallib.py budget`, or
+    (None, why) when the cost cannot be read (no folder, a row without a cost)."""
+    result = run(["python3", EVALLIB, "budget", folder, "--limit", "1000000", "--next", "0", "--reserve", "0"],
+                 os.path.dirname(folder) or None)
+    found = SPENT.search(result.stdout or "")
+    if result.returncode not in (0, 1) or not found:
+        return None, (result.stderr or result.stdout).strip() or f"evallib.py budget: kod {result.returncode}"
+    return float(found.group(1)), None
+
+
+def run_paid(tests, cwd, out):
+    """Run the paid tests in cwd with their result in the folder out: (command, result, cost, why)."""
+    evals = os.environ.get("RETRO_PR_EVALS") or EVALS
+    command = f"{evals} {' '.join(shlex.quote(t) for t in tests)} --out {shlex.quote(out)}"
+    result = run_group(command, cwd, PAID_TIMEOUT)
+    cost, why = paid_cost(out)
+    return command, result, cost, why
+
+
+def cost_text(cost, why):
+    return f"{usd(cost)} USD" if cost is not None else f"koszt nieznany ({why})"
+
+
+def paid_comment(path, command, result, cost, why):
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(["## Płatne testy skilli", "", f"- Polecenie: `{command}`",
+                            f"- Kod wyjścia: {result.returncode}", f"- Koszt: {cost_text(cost, why)}", "",
+                            "~~~", tail(result), "~~~", ""]))
+
+
 def tail(result):
     lines = (result.stdout + result.stderr).rstrip().splitlines()
     return "\n".join(lines[-TAIL:])
@@ -471,10 +681,142 @@ def moved_only_by_runs(root, base, now):
     return True
 
 
-def remove_worktree(root, path):
-    if os.path.isdir(path):
-        run(["git", "worktree", "remove", "--force", path], root)
-    run(["git", "worktree", "prune"], root)
+# Commits without git in an agent's folder (impl-review-6 F1 of paczka-1-1, decision of the human): an agent works in
+# a fresh copy of a commit (git archive); after it, the step only reads that folder's files and builds the commit in
+# the main repo; the tests, the reviewer and the paid tests each get their own fresh copy of the checked commit.
+
+def run_input(cmd, cwd, data, env=None):
+    """Run a program with the bytes data on stdin: (code, stdout text, stderr text)."""
+    try:
+        result = subprocess.run(cmd, cwd=cwd, input=data, capture_output=True, env=env, timeout=SESSION_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 127, "", str(exc)
+    return (result.returncode, result.stdout.decode("utf-8", "replace"),
+            result.stderr.decode("utf-8", "replace"))
+
+
+def blob_id(data):
+    """The git id (sha1) of a blob with the bytes data."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def tree_entries(root, commit):
+    """{path: (mode, id)} of the files and links of commit (no folders, no submodules)."""
+    found = {}
+    for item in git(root, "ls-tree", "-r", "-z", "--full-tree", commit).split("\0"):
+        if not item:
+            continue
+        meta, path = item.split("\t", 1)
+        mode, kind, oid = meta.split()
+        if kind == "blob":
+            found[path] = (mode, oid)
+    return found
+
+
+def tree_files(folder):
+    """{path: (mode, bytes)} of every file and link in folder, without folders named .git; nothing is run in it."""
+    found, stack = {}, [""]
+    while stack:
+        rel = stack.pop()
+        with os.scandir(os.path.join(folder, rel) if rel else folder) as entries:
+            for entry in entries:
+                if entry.name == ".git":
+                    continue
+                path = f"{rel}/{entry.name}" if rel else entry.name
+                if entry.is_symlink():
+                    found[path] = ("120000", os.fsencode(os.readlink(entry.path)))
+                elif entry.is_dir(follow_symlinks=False):
+                    stack.append(path)
+                elif entry.is_file(follow_symlinks=False):
+                    fd = os.open(entry.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                    with os.fdopen(fd, "rb") as fh:
+                        mode = "100755" if os.fstat(fh.fileno()).st_mode & 0o111 else "100644"
+                        found[path] = (mode, fh.read())
+    return found
+
+
+def copy_problem(root, commit, folder):
+    """Why folder is not exactly the files of commit (a file missing, extra or different), or None."""
+    want = tree_entries(root, commit)
+    have = {path: (mode, blob_id(data)) for path, (mode, data) in tree_files(folder).items()}
+    wrong = sorted(path for path in set(want) | set(have) if want.get(path) != have.get(path))
+    return f"kopia commita {commit[:7]} różni się od niego: {', '.join(wrong[:5])}" if wrong else None
+
+
+@contextlib.contextmanager
+def fresh(root, commit, parent):
+    """A fresh copy of commit (git archive) in a new folder under parent, checked file by file against the commit,
+    removed after use."""
+    folder = tempfile.mkdtemp(prefix="kopia-", dir=parent)
+    try:
+        try:
+            archived = subprocess.run(["git", "archive", "--format=tar", commit], cwd=root, capture_output=True,
+                                      stdin=subprocess.DEVNULL, timeout=SESSION_TIMEOUT)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise Failed(f"git archive {commit[:7]}: {exc}")
+        if archived.returncode != 0:
+            raise Failed(f"git archive {commit[:7]}: {archived.stderr.decode('utf-8', 'replace').strip()}")
+        try:
+            with tarfile.open(fileobj=io.BytesIO(archived.stdout), mode="r:") as tar:
+                tar.extractall(folder, filter="data")
+        except (tarfile.TarError, OSError) as exc:
+            raise Failed(f"rozpakowanie kopii commita {commit[:7]}: {exc}")
+        problem = copy_problem(root, commit, folder)
+        if problem:
+            raise Failed(problem)
+        yield folder
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def commit_index(root, parent, lines, message):
+    """A commit on top of parent whose tree is parent's with the index lines (`<mode> <id>\t<path>`, mode 0 removes)
+    applied, built in a temporary index of the main repo; its id."""
+    fd, index = tempfile.mkstemp(prefix="retro-pr-index-")
+    os.close(fd)
+    os.remove(index)
+    env = dict(os.environ, GIT_INDEX_FILE=index)
+    try:
+        for cmd, data in ((["git", "read-tree", parent], b""),
+                          (["git", "update-index", "-z", "--index-info"],
+                           b"".join(line.encode("utf-8") + b"\0" for line in lines))):
+            code, _, err = run_input(cmd, root, data, env)
+            if code != 0:
+                raise Failed(f"{' '.join(cmd[:2])}: {err.strip()}")
+        code, tree, err = run_input(["git", "write-tree"], root, b"", env)
+        if code != 0:
+            raise Failed(f"git write-tree: {err.strip()}")
+    finally:
+        if os.path.exists(index):
+            os.remove(index)
+    code, commit, err = run_input(["git", "commit-tree", tree.strip(), "-p", parent, "-m", message], root, b"")
+    if code != 0:
+        raise Failed(f"git commit-tree: {err.strip()}")
+    return commit.strip()
+
+
+def write_blob(root, data):
+    """Write the bytes data as a blob in the main repo; its id."""
+    code, oid, err = run_input(["git", "hash-object", "-w", "--no-filters", "--stdin"], root, data)
+    if code != 0 or oid.strip() != blob_id(data):
+        raise Failed(f"git hash-object: {err.strip() or oid.strip()}")
+    return oid.strip()
+
+
+def commit_folder(root, parent, folder, message):
+    """The commit whose tree is exactly the files of folder (tree_files) on top of parent, or None when it equals
+    parent's tree. Only reads folder's files; every git command runs in the main repo."""
+    base = tree_entries(root, parent)
+    files = tree_files(folder)
+    lines = []
+    for path, (mode, data) in sorted(files.items()):
+        oid = blob_id(data)
+        if base.get(path) != (mode, oid):
+            if base.get(path, (None, None))[1] != oid:
+                write_blob(root, data)
+            lines.append(f"{mode} {oid}\t{path}")
+    lines += [f"0 {'0' * 40}\t{path}" for path in sorted(set(base) - set(files))]
+    return commit_index(root, parent, lines, message) if lines else None
 
 
 # The step.
@@ -522,7 +864,8 @@ def start(root, change_id):
                    f"{', '.join(unknown)}")
     doc = show(root, origin, PR_DOC, Stop)
     prompts = {}
-    for key, heading in (("author", "Autor poprawki"), ("reviewer", "Recenzent poprawki")):
+    for key, heading in (("author", "Autor poprawki"), ("reviewer", "Recenzent poprawki"),
+                         ("fixer", "Poprawka po testach")):
         lines = section(doc, heading)
         if not lines or not "\n".join(lines).strip():
             raise Stop(f"{PR_DOC} w origin/master nie ma sekcji `## {heading}`")
@@ -537,27 +880,22 @@ def start(root, change_id):
             "skills": skills, "proposals": proposals, "candidates": candidates}
 
 
-def merge(root, st, proposal, wt, branch, pr_number, url, base, basis):
-    """Commit the decision-log entry as the last commit of the branch, push, merge."""
+def merge(root, st, proposal, gated, branch, pr_number, url, base, basis):
+    """Commit the decision-log entry on top of the checked commit gated as the last commit of the branch (built in
+    the main repo, impl-review-6 F1), push it, merge."""
     texts = []
     for path in DECISION_FILES:
         result = run(["git", "show", f"{base}:{path}"], root)
         texts.append(result.stdout if result.returncode == 0 else "")
     entry = decision_entry(next_decision(texts), st["change_id"], proposal, st["retro_path"], pr_number,
                            basis, datetime.date.today().isoformat())
-    log = os.path.join(wt, DECISIONS)
-    os.makedirs(os.path.dirname(log), exist_ok=True)
     current = texts[0] or "# Decisions\n"
     current += "" if current.endswith("\n\n") else ("\n" if current.endswith("\n") else "\n\n")
-    with open(log, "w", encoding="utf-8") as fh:
-        fh.write(current + entry)
+    data = (current + entry).encode("utf-8")
     n, cid = proposal["n"], st["change_id"]
-    git(wt, "add", DECISIONS)
-    git(wt, "commit", "-q", "-m", f"docs: wpis decyzji o propozycji (retro {cid} P{n})")
-    git(wt, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
-    head = rev(wt, "HEAD")
-    # gh deletes the local branch too, which fails while a worktree holds it.
-    remove_worktree(root, wt)
+    head = commit_index(root, gated, [f"100644 {write_blob(root, data)}\t{DECISIONS}"],
+                        f"docs: wpis decyzji o propozycji (retro {cid} P{n})")
+    git(root, "push", "-q", "origin", f"{head}:refs/heads/{branch}")
     merge_checked(root, pr_number, head, url,
                   f"fix(skills): {subject_title(proposal['title'], cid)} (retro {cid} P{n})", base)
 
@@ -627,8 +965,8 @@ def pr_body(st, proposal, changes, reasons, verify, review, paid, waiting, marke
         out += ["", "~~~", text or "(brak wyniku sesji)", "~~~"]
     if waiting:
         out += ["", "## Powód czekania", ""] + [f"- {reason}" for reason in waiting]
-    if paid and waiting == [paid_reason(paid)]:
-        total = sum(cost for _, cost in paid)
+    if only_paid_waiting(paid, waiting):
+        total = paid_total(paid)
         out += ["", "## Decyzja do podjęcia", "",
                 "- Testy: " + ", ".join(f"`{test}` (ok. {usd(cost)} USD)" for test, cost in paid),
                 f"- Koszt: ok. {usd(total)} USD",
@@ -661,7 +999,7 @@ def check_branch_free(root, branch):
 
 
 def handle(root, st, proposal):
-    """One proposal in its own worktree; returns its summary line."""
+    """One proposal in its own temporary folder; returns its summary line."""
     n, cid = proposal["n"], st["change_id"]
     branch = f"retro/{cid}-p{n}"
     if run(["git", "fetch", "-q", "origin"], root).returncode != 0:
@@ -672,51 +1010,50 @@ def handle(root, st, proposal):
     check_branch_free(root, branch)
     base = rev(root, "origin/master")
     tmp = tempfile.mkdtemp(prefix="retro-pr-")
-    wt = os.path.join(tmp, f"retro-{cid}-p{n}")
     try:
-        git(root, "worktree", "add", "-q", "-b", branch, wt, base)
-        return work(root, st, proposal, branch, base, wt, tmp)
+        return work(root, st, proposal, branch, base, tmp)
     finally:
-        remove_worktree(root, wt)
-        run(["git", "branch", "-D", branch], root)
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def gates(st, proposal, wt, base, gated):
-    """The gates of commit gated against base in worktree wt: scope, the list and chain steps, the paid
-    tests, then the deterministic tests and the reviewer when no gate hit.
+def gates(st, proposal, root, base, gated, tmp):
+    """The gates of commit gated against base: scope, the list and chain steps, the paid tests, then the
+    deterministic tests and the reviewer when no gate hit. The git commands run in the main repo root; the tests and
+    the reviewer each run in a fresh copy of gated under tmp (fresh), so nothing they do reaches the pushed commit
+    (impl-review-6 F1 of paczka-1-1).
 
     Returns (changes, reasons, verify, review, paid, waiting, marker); waiting lists every reason the PR
-    waits for a human, empty when it may be merged. Raises Failed when the tests or the reviewer changed
-    the worktree: the commit they judged would not be the one pushed."""
+    waits for a human and is never empty: automatic merging is off (AUTO_MERGE_OFF), and paid tests are always the
+    human's decision (paid_reason)."""
     changes = []
-    for line in git(wt, "diff", "--name-status", "-M", base, gated).splitlines():
+    for line in git(root, "diff", "--name-status", "-M", base, gated).splitlines():
         parts = line.split("\t")
         changes.append((parts[0][0], parts[1:]))
     modified = [paths[0] for status, paths in changes if status == "M"]
-    base_texts = {path: show(wt, base, path) for path in modified}
-    head_texts = {path: show(wt, gated, path) for path in modified}
+    base_texts = {path: show(root, base, path) for path in modified}
+    head_texts = {path: show(root, gated, path) for path in modified}
     reasons = classify(changes, st["consent"], st["skills"], base_texts, head_texts)
     paid = paid_tests(changes, st["consent"])
 
     verify = review = None
     if not reasons:
         command = os.environ.get("RETRO_PR_VERIFY") or VERIFY
-        verify = (command, run(command, wt, shell=True, timeout=SESSION_TIMEOUT))
+        with fresh(root, gated, tmp) as copy:
+            verify = (command, run_verify(command, copy))
         if verify[1].returncode == 0:
-            diff = git(wt, "diff", base, gated)
+            diff = git(root, "diff", base, gated)
             prompt = fill(st["prompts"]["reviewer"], {"proposal": proposal["block"], "diff": diff})
-            _, log = session(prompt, REVIEWER_TOOLS, wt)
+            with fresh(root, gated, tmp) as copy:
+                _, log = session(prompt, REVIEWER_TOOLS, copy)
             review = (parse_verdict(log), last_result(log))
-    if rev(wt, "HEAD") != gated or git(wt, "status", "--porcelain", "--untracked-files=no").strip():
-        raise Failed("testy skilli albo recenzent zmienili worktree po bramkach; nic nie wysłano")
     waiting = list(reasons)
     if verify is not None and verify[1].returncode != 0:
-        waiting.append(f"testy skilli: kod wyjścia {verify[1].returncode}")
+        waiting.append(tests_reason(verify))
     if review is not None and review[0] != "ZATWIERDZAM":
         waiting.append(f"recenzent: {review[0] or 'brak poprawnego werdyktu'}")
     if paid:
         waiting.append(paid_reason(paid))
+    waiting.append(AUTO_MERGE_OFF)
     marker = {
         "verify": "skip" if verify is None else ("ok" if verify[1].returncode == 0 else "fail"),
         "review": "skip" if review is None else {"ZATWIERDZAM": "approve", "ODRZUCAM": "reject"}.get(review[0], "none"),
@@ -727,15 +1064,11 @@ def gates(st, proposal, wt, base, gated):
     return changes, reasons, verify, review, paid, waiting, marker
 
 
-MOVED_NO_REASON = "bramki przeszły na nowej bazie; przeniesionego PR-a krok PR nie scala, decyduje człowiek"
-
-
-def move_waiting(root, st, merged=frozenset()):
+def move_waiting(root, st):
     """Move every open PR of this change that waits on an older base onto origin/master: (lines, failed).
 
     A PR counts when its branch is retro/<change-id>-p<n> of a candidate, its marker has `verify`
-    and its `base` is not origin/master. A PR whose number is in merged (merged in this run) never
-    counts: GitHub's search may still list it as open. Never merges."""
+    and its `base` is not origin/master. Never merges."""
     cid = st["change_id"]
     by_n = {p["n"]: p for p in st["candidates"]}
     if not by_n:
@@ -753,7 +1086,7 @@ def move_waiting(root, st, merged=frozenset()):
     for pr in sorted((pr for pr in prs if isinstance(pr, dict)), key=lambda pr: pr.get("number") or 0):
         match = branch.fullmatch(pr.get("headRefName") or "")
         marker = parse_marker(pr.get("body"))
-        if not match or not marker or "verify" not in marker or pr.get("number") in merged:
+        if not match or not marker or "verify" not in marker:
             continue
         proposal = by_n.get(int(match.group(1)))
         if proposal is None or marker.get("base") == origin:
@@ -773,7 +1106,8 @@ def move_waiting(root, st, merged=frozenset()):
 
 
 def move(root, st, proposal, pr, marker, origin):
-    """One waiting PR onto origin/master (a merge commit, never a rewrite); returns its summary line."""
+    """One waiting PR onto origin/master (a merge commit built in the main repo with git merge-tree, never a
+    rewrite and no checkout of the PR's files); returns its summary line."""
     n, cid = proposal["n"], st["change_id"]
     branch, number, url = pr["headRefName"], pr.get("number"), pr.get("url", "")
     head = pr.get("headRefOid") or ""
@@ -784,23 +1118,28 @@ def move(root, st, proposal, pr, marker, origin):
             run(["git", "cat-file", "-e", head + "^{commit}"], root).returncode != 0:
         raise Failed(f"nie da się pobrać commita {head[:7]} gałęzi {branch}")
     tmp = tempfile.mkdtemp(prefix="retro-pr-")
-    wt = os.path.join(tmp, f"retro-{cid}-p{n}")
     try:
-        git(root, "worktree", "add", "-q", "--detach", wt, head)
-        merged = run(["git", "merge", "--no-edit", "-q", "origin/master"], wt)
+        merged = run(["git", "merge-tree", "--write-tree", head, origin], root)
         if merged.returncode != 0:
-            run(["git", "merge", "--abort"], wt)
             comment = os.path.join(tmp, "comment.md")
             with open(comment, "w", encoding="utf-8") as fh:
                 fh.write("\n".join([
-                    f"Nie przeniesiono na origin/master ({origin[:7]}): `git merge --no-edit origin/master` "
-                    f"w gałęzi `{branch}` kończy się konfliktem. Gałąź i opis PR-a zostają bez zmian; "
+                    f"Nie przeniesiono na origin/master ({origin[:7]}): `git merge-tree --write-tree` gałęzi "
+                    f"`{branch}` z origin/master kończy się konfliktem. Gałąź i opis PR-a zostają bez zmian; "
                     "przeniesienie wymaga człowieka.", "", "~~~", tail(merged), "~~~", ""]))
             gh(root, "pr", "comment", str(number), "--body-file", comment)
             return f"P{n}: czeka na człowieka — konflikt z origin/master {origin[:7]}; przeniesienie wymaga człowieka ({url})"
-        gated = rev(wt, "HEAD")
-        changes, reasons, verify, review, paid, waiting, new_marker = gates(st, proposal, wt, origin, gated)
-        git(wt, "push", "-q", "origin", f"{gated}:refs/heads/{branch}")
+        tree = merged.stdout.split()[0]
+        code, gated, err = run_input(["git", "commit-tree", tree, "-p", head, "-p", origin, "-m",
+                                      f"Merge origin/master into {branch}"], root, b"")
+        if code != 0:
+            raise Failed(f"git commit-tree: {err.strip()}")
+        gated = gated.strip()
+        changes, reasons, verify, review, paid, waiting, new_marker = gates(st, proposal, root, origin, gated, tmp)
+        # A moved PR is never merged here, so its paid tests stay the human's decision (`--paid-tests`).
+        if paid and paid_reason(paid) not in waiting:
+            waiting.append(paid_reason(paid))
+        git(root, "push", "-q", "origin", f"{gated}:refs/heads/{branch}")
         body_file = os.path.join(tmp, "body.md")
         with open(body_file, "w", encoding="utf-8") as fh:
             fh.write(pr_body(st, proposal, changes, reasons, verify, review, paid, waiting, new_marker))
@@ -808,7 +1147,6 @@ def move(root, st, proposal, pr, marker, origin):
         return (f"P{n}: czeka na człowieka — przeniesiony na origin/master {origin[:7]}; "
                 f"{'; '.join(waiting) or MOVED_NO_REASON} ({url})")
     finally:
-        remove_worktree(root, wt)
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -830,20 +1168,52 @@ def align_master(root):
     return f"master: git pull --ff-only — {rev(root, 'HEAD')[:7]}", True
 
 
-def work(root, st, proposal, branch, base, wt, tmp):
+def fix_tests(st, proposal, root, base, gated, verify, branch, tmp, number):
+    """One try of the fixer for failed deterministic tests (D-427): a fresh session in a fresh copy of the checked
+    commit gated with the test output, in the step sandbox; its result becomes a commit built in the main repo
+    (commit_folder), which goes to the PR's branch with a plain push, after every gate ran again on the new head
+    against the same base, and the PR gets a new body and marker. Returns the new result of gates(), or (None, why)
+    when the fixer failed or changed nothing (the PR keeps its body). Raises Failed when the new gates or the push
+    fail: nothing was pushed or the body is not new."""
+    n, cid = proposal["n"], st["change_id"]
+    command, result = verify
+    tests = f"Polecenie: {command}\nKod wyjścia: {result.returncode}\n\n{tail(result)}"
+    prompt = fill(st["prompts"]["fixer"], {"change_id": cid, "n": str(n), "proposal": proposal["block"],
+                                           "tests": tests})
+    with fresh(root, gated, tmp) as copy:
+        code, log = session(prompt, FIXER_TOOLS, copy)
+        if code != 0 or last_result(log) is None:
+            return None, f"poprawka agenta-autora: sesja zwróciła błąd (kod {code})"
+        fixed = commit_folder(root, gated, copy, f"fix(skills): poprawka testów skilli (retro {cid} P{n})")
+    if fixed is None:
+        return None, "poprawka agenta-autora niczego nie zmieniła"
+    result = gates(st, proposal, root, base, fixed, tmp)
+    # A fast-forward of the checked head: never --force.
+    git(root, "push", "-q", "origin", f"{fixed}:refs/heads/{branch}")
+    body_file = os.path.join(tmp, "body.md")
+    with open(body_file, "w", encoding="utf-8") as fh:
+        fh.write(pr_body(st, proposal, *result))
+    gh(root, "pr", "edit", str(number), "--body-file", body_file)
+    return result, None
+
+
+def work(root, st, proposal, branch, base, tmp):
+    """One proposal: the author, the commit, the gates, the PR and at most one fixer; the PR always waits for a human
+    (AUTO_MERGE_OFF). The author works in a fresh copy of base; after it the step only reads that copy's files
+    (commit_folder) and runs nothing in it (impl-review-6 F1 of paczka-1-1)."""
     n, cid, title = proposal["n"], st["change_id"], proposal["title"]
     prompt = fill(st["prompts"]["author"], {"change_id": cid, "n": str(n), "proposal": proposal["block"]})
-    code, log = session(prompt, AUTHOR_TOOLS, wt)
-    if code != 0 or last_result(log) is None:
-        raise Failed(f"sesja autora zwróciła błąd (kod {code})")
-    git(wt, "add", "-A")
-    if run(["git", "diff", "--cached", "--quiet"], wt).returncode == 0:
+    with fresh(root, base, tmp) as copy:
+        code, log = session(prompt, AUTHOR_TOOLS, copy)
+        if code != 0 or last_result(log) is None:
+            raise Failed(f"sesja autora zwróciła błąd (kod {code})")
+        # The gates judge this commit; it is the one pushed and merged.
+        gated = commit_folder(root, base, copy, f"fix(skills): {subject_title(title, cid)} (retro {cid} P{n})")
+    if gated is None:
         raise Failed("autor nic nie zmienił")
-    git(wt, "commit", "-q", "-m", f"fix(skills): {subject_title(title, cid)} (retro {cid} P{n})")
-    # The gates judge this commit; it is the one pushed and merged.
-    gated = rev(wt, "HEAD")
-    changes, reasons, verify, review, paid, waiting, marker = gates(st, proposal, wt, base, gated)
-    git(wt, "push", "-q", "origin", f"{gated}:refs/heads/{branch}")
+    result = gates(st, proposal, root, base, gated, tmp)
+    changes, reasons, verify, review, paid, waiting, marker = result
+    git(root, "push", "-q", "origin", f"{gated}:refs/heads/{branch}")
     body_file = os.path.join(tmp, "body.md")
     with open(body_file, "w", encoding="utf-8") as fh:
         fh.write(pr_body(st, proposal, changes, reasons, verify, review, paid, waiting, marker))
@@ -854,28 +1224,25 @@ def work(root, st, proposal, branch, base, wt, tmp):
     if not number:
         raise Failed(f"gh pr create nie podał adresu PR-a: {out.strip()}")
     number = int(number.group(1))
-    if waiting:
-        return f"P{n}: czeka na człowieka — {'; '.join(waiting)} ({url})"
-
-    git(root, "fetch", "-q", "origin")
-    now = rev(root, "origin/master")
-    if now != base:
-        reason = f"origin/master przesunął się z {base[:7]} na {now[:7]} po założeniu PR-a"
-        with open(body_file, "w", encoding="utf-8") as fh:
-            fh.write(f"Nie scalono: {reason}. Decyduje człowiek.\n")
-        gh(root, "pr", "comment", str(number), "--body-file", body_file)
-        return f"P{n}: czeka na człowieka — {reason} ({url})"
-    merge(root, st, proposal, wt, branch, number, url, base,
-          "testy deterministyczne zwróciły 0, recenzent dał WERDYKT: ZATWIERDZAM")
-    return f"P{n}: scalony (PR #{number})"
+    after_fix = ""
+    if fixable(reasons, verify, waiting, paid):
+        # The PR exists, so a failure here leaves it waiting instead of an error without a PR.
+        try:
+            fixed, why = fix_tests(st, proposal, root, base, gated, verify, branch, tmp, number)
+        except Failed as exc:
+            fixed, why = None, f"poprawka agenta-autora się nie udała: {exc}"
+        if fixed is None:
+            return f"P{n}: czeka na człowieka — {'; '.join(waiting + [why])} ({url})"
+        changes, reasons, verify, review, paid, waiting, marker = fixed
+        after_fix = "po poprawce agenta-autora: "
+    return f"P{n}: czeka na człowieka — {after_fix}{'; '.join(waiting)} ({url})"
 
 
 def pr_mode(root, st):
     if not st["proposals"]:
         print(f"Brak propozycji w {st['retro_path']}; nic do zrobienia.")
         return 0
-    failed = wrote = False
-    merged = set()
+    failed = False
     for proposal in st["proposals"]:
         if not is_candidate(proposal["target"]):
             print(outside_line(proposal))
@@ -892,20 +1259,11 @@ def pr_mode(root, st):
         except Exception as exc:  # one broken proposal must not drop the others
             line, failed = f"P{proposal['n']}: błąd — nieoczekiwany wyjątek: {type(exc).__name__}: {exc}", True
         print(line)
-        wrote = wrote or line.startswith(f"P{proposal['n']}: scalony")
-        done = re.fullmatch(rf"P{proposal['n']}: scalony \(PR #(\d+)\)", line)
-        if done:
-            merged.add(int(done.group(1)))
-    # After every merge of this run: the PRs that still wait move onto the new origin/master,
-    # without the PRs merged in this run.
-    moved, move_failed = move_waiting(root, st, merged=merged)
+    # The PRs of this change that wait on an older base move onto origin/master (the step merges nothing itself).
+    moved, move_failed = move_waiting(root, st)
     for line in moved:
         print(line)
     failed = failed or move_failed
-    if wrote:
-        line, ok = align_master(root)
-        print(line)
-        failed = failed or not ok
     print(REMINDER)
     return 1 if failed else 0
 
@@ -959,44 +1317,38 @@ def paid_mode(root, st, which):
         raise Stop(f"nie da się pobrać commita {head[:7]} gałęzi {branch}")
 
     tmp = tempfile.mkdtemp(prefix="retro-pr-")
-    wt = os.path.join(tmp, f"retro-{cid}-p{n}")
     merged = False
     try:
-        evals = os.environ.get("RETRO_PR_EVALS") or EVALS
-        command = f"{evals} {' '.join(shlex.quote(t) for t in tests)} --out {shlex.quote(os.path.join(tmp, 'evals'))}"
         try:
             git(root, "switch", "-q", "--detach", head)
-            result = run(command, root, shell=True)
+            command, result, cost, why = run_paid(tests, root, os.path.join(tmp, "evals"))
         finally:
             back = run(["git", "switch", "-q", "master"], root)
         if back.returncode != 0:
             raise Failed(f"powrót głównego folderu na master się nie udał: {back.stderr.strip()}")
         comment = os.path.join(tmp, "comment.md")
-        with open(comment, "w", encoding="utf-8") as fh:
-            fh.write("\n".join(["## Płatne testy skilli", "", f"- Polecenie: `{command}`",
-                                f"- Kod wyjścia: {result.returncode}", "", "~~~", tail(result), "~~~", ""]))
+        paid_comment(comment, command, result, cost, why)
         gh(root, "pr", "comment", str(number), "--body-file", comment)
         names = ", ".join(tests)
         if result.returncode != 0:
-            print(f"P{n}: czeka na człowieka — płatny test {names} zwrócił {result.returncode} ({url})")
+            print(f"P{n}: czeka na człowieka — płatny test {names} zwrócił {result.returncode}, "
+                  f"{cost_text(cost, why)} ({url})")
         else:
             git(root, "fetch", "-q", "origin")
             now = rev(root, "origin/master")
             if now != base and not moved_only_by_runs(root, base, now):
                 print(f"P{n}: czeka na człowieka — origin/master przesunął się z {base[:7]} na {now[:7]} ({url})")
             else:
-                git(root, "worktree", "add", "-q", "--detach", wt, head)
-                merge(root, st, proposal, wt, branch, number, url, base,
+                merge(root, st, proposal, head, branch, number, url, base,
                       f"testy deterministyczne zwróciły 0, recenzent dał WERDYKT: ZATWIERDZAM, "
-                      f"płatny test {names} zwrócił 0")
-                print(f"P{n}: scalony (PR #{number})")
+                      f"płatny test {names} zwrócił 0 ({cost_text(cost, why)})")
+                print(f"P{n}: scalony (PR #{number}) (płatny test {names}: {cost_text(cost, why)})")
                 merged = True
     except Failed as exc:
         print(f"P{n}: błąd — {exc}")
         print(REMINDER)
         return 1
     finally:
-        remove_worktree(root, wt)
         shutil.rmtree(tmp, ignore_errors=True)
     code = 0
     if merged:

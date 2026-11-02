@@ -1,0 +1,37 @@
+# autopilot: ci-galezi
+# CI template of the guardrails skill. The step that adds CI copies this file to .github/workflows/, keeps the first
+# line (the autopilot waits for this workflow on the branch of a change before the merge) and fills every <...> place
+# for the stack of the project. Every program of references/required-programs.json is installed or checked here.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The secret scan of verify (gitleaks git) checks every commit, so it needs the full history.
+          fetch-depth: 0
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Programs of verify
+        run: |
+          git --version
+          python3 --version
+          gitleaks version
+      - name: Prepare the stack
+        run: <prepare the stack, e.g. install the runtime and the dependencies>
+      - name: Verify
+        run: <the verify command of the project>
+      - name: Tests with local services
+        run: <the command of the section Testy w CI of CLAUDE.md>

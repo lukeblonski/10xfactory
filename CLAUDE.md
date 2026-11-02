@@ -2,6 +2,8 @@
 
 Uruchom `python3 -m unittest discover -s scripts -p 'test_*.py' && python3 scripts/check_refs.py && python3 scripts/check_no_copy.py` przed każdym commitem. Polecenie uruchamia testy skryptów, sprawdzenie odwołań w skillach i sprawdzenie, że repo nie kopiuje skilli kursu; kończy się kodem różnym od 0, gdy coś nie przechodzi.
 
+Commit, który zmienia tylko pliki w `context/`, nie wymaga pełnego sprawdzenia. Każdy inny commit wymaga go jak dotąd.
+
 Ostatni poprawny przebieg (2026-10-26):
 
 ```
@@ -29,15 +31,26 @@ Zasady stylu dotyczą tylko tekstu, który agent pisze do człowieka: odpowiedzi
 - Rekomendację porównaj z celem zmiany zapisanym w `change.md`, w polach `**Problem.**` i `**Oczekiwany efekt.**`. Napisz, czy rekomendacja przybliża ten cel.
 - Daj gotową odpowiedź do wklejenia w jednym bloku i pełne polecenia do uruchomienia, bez skrótów i bez komentarzy.
 - Przy każdym działaniu człowieka (bramka, zgoda, sekret, plik chroniony, aktualizacja zabezpieczeń, logowanie) daj najłatwiejszy bezpieczny sposób, gotowe polecenie do wklejenia i jedno zdanie, dlaczego nie robi tego agent. Nie pisz samego „zmiana po Twojej stronie”.
+- Polecenie do pliku chronionego daj do zwykłego Terminala, nie przez `!`. Klucz zapisuje jedno polecenie, które samo prosi o wartość (`read -rs`) i potwierdza zapis liczbą znaków.
+- Pisz po polsku.
+- Pogrubienie tylko na puencie.
+- Liczbę podaj raz, z tym, co znaczy.
+- Gęstość i zastrzeżenia idą do pliku, nie do rozmowy. Przeładowana odpowiedź to błąd.
+- Jedna rekomendacja. Nigdy wersje do wyboru.
+- Kwestionuj. Potakiwanie to błąd. Pytanie sugerujące przeformułuj na otwarte. Gdy człowiek się myli, popraw go wprost.
+- Na frustrację człowieka odpowiedz najpierw danymi i wnioskiem, bez uspokajania. Własny błąd przyznaj krótko.
+- Gdy człowiek wkleja wynik innej sesji, daj proste wyjaśnienie, ocenę, jedną rekomendację i gotową odpowiedź.
+- Nie dopisuj notatek, o które człowiek nie prosił.
+- Nie angażuj człowieka w mechanikę, którą może zrobić agent.
+- Bez cytatów wklejonych w środek zdania i bez zagnieżdżonych kontrargumentów.
 - Na końcu zadaj jedno pytanie.
 
 Słownik. Samego słowa „fabryka” bez dopowiedzenia nie używamy.
 
-- **Laboratorium** — obecne prywatne repo `fabryka`: wersja ucząca się, na skillach kursu, z retro, pomiarem i dziennikiem; tu powstaje każda zmiana.
-- **Paczka** — publiczne repo z samą automatyzacją workflow, zawsze z numerem wersji („paczka 1.0”); powstaje z laboratorium skryptem eksportu.
+- **Paczka** — publiczne repo z samą automatyzacją workflow, zawsze z numerem wersji („paczka 1.0”); powstaje skryptem eksportu z prywatnego repo fabryki.
 - **Fabryka komercyjna** — przyszły produkt bez skilli kursu; dziś nie istnieje.
-- **Aplikacja** — projekt budowany przez laboratorium albo paczkę.
-- **Start projektu** — droga zmiany, gdy człowiek ma tylko pomysł: kształtowanie w rozmowie, PRD, technologia i infrastruktura zaakceptowane na jednym posiedzeniu, potem roadmapa, której kawałki laboratorium buduje po kolei jako zmiany bez akceptacji intencji każdego kawałka.
+- **Aplikacja** — projekt budowany przez paczkę.
+- **Start projektu** — droga zmiany, gdy człowiek ma tylko pomysł: kształtowanie w rozmowie, PRD, technologia i infrastruktura zaakceptowane na jednym posiedzeniu, potem roadmapa, której kawałki paczka buduje po kolei jako zmiany bez akceptacji intencji każdego kawałka.
 - **Pojedyncza zmiana** — droga zmiany, gdy projekt ma już PRD i roadmapę, a człowiek przychodzi z jedną prośbą, z której agent pisze intencję do akceptacji człowieka (w aplikacji z roadmapą czeka na etap brownfield, D-188).
 - **Pełny łańcuch** — budowa jednej zmiany przez wszystkie kroki: intencja → research → plan → przegląd planu → implementacja → przegląd kodu → archiwum → scalenie.
 - **Krótsza ścieżka** — budowa jednej zmiany o niskim ryzyku tym samym łańcuchem bez kroków, które w 10x są sytuacyjne (np. research przy prostej zmianie), przy czym przegląd planu i przegląd kodu zostają zawsze (etap 6, musi być w paczce 1.0).

@@ -14,7 +14,8 @@ and `os.getcwd()` without it.
 - Folder with the marker file `.fabryka`: the same JSON with the text that
   points to `<lab>/docs/start-projektu.md` and `<lab>/docs/sesja-glowna.md`.
 - Empty folder (its listing holds at most `.git` and `.DS_Store`): the same
-  JSON with the text that asks once "fabryką czy zwyczajnie?".
+  JSON with the text that asks once "fabryką czy zwyczajnie?" with the
+  AskUserQuestion tool and two options, "fabryką" and "zwyczajnie".
 - The marker and empty-folder texts also end with the sentence that
   `<fabryka>` is `<lab>`, because the laboratory files say `<fabryka>`
   instead of the full path.
@@ -46,32 +47,33 @@ GUARD = "AUTOPILOT_KROK"
 FABRYKA = "<fabryka> to folder " + LAB + "."
 
 PUSTY = (
-    "Laboratorium fabryka: ten folder jest pusty. Ta instrukcja dotyczy tylko prośby o zbudowanie "
+    "Fabryka: ten folder jest pusty. Ta instrukcja dotyczy tylko prośby o zbudowanie "
     "albo zmianę czegoś. Zwykłe pytania (np. „co znaczy ten błąd?”) dostają zwykłą odpowiedź, "
-    "bez laboratorium i bez tego pytania. Przy pierwszej prośbie o zbudowanie albo zmianę czegoś "
-    "zapytaj człowieka raz: „fabryką czy zwyczajnie?”. Gdy człowiek już wybrał w tej rozmowie, "
+    "bez fabryki i bez tego pytania. Przy pierwszej prośbie o zbudowanie albo zmianę czegoś "
+    "zapytaj człowieka raz: „fabryką czy zwyczajnie?”, narzędziem AskUserQuestion z dwiema opcjami: "
+    "„fabryką” i „zwyczajnie”. Gdy człowiek już wybrał w tej rozmowie, "
     "nie pytaj ponownie. „Fabryką”: przeczytaj " + START_DOC + " i działaj według niego. "
-    "„Zwyczajnie”: pracuj jak zwykły Claude Code, bez laboratorium i bez znacznika " + MARKER + ". "
+    "„Zwyczajnie”: pracuj jak zwykły Claude Code, bez fabryki i bez znacznika " + MARKER + ". "
     + FABRYKA
 )
 
 ZNACZNIK = (
-    "Laboratorium fabryka: to repo aplikacji laboratorium (znacznik " + MARKER + "). Ta instrukcja "
+    "Fabryka: to repo aplikacji fabryki (znacznik " + MARKER + "). Ta instrukcja "
     "dotyczy tylko próśb o budowę albo zmianę czegoś. Zwykłe pytania (np. „co znaczy ten błąd?”) "
-    "dostają zwykłą odpowiedź, bez workflow laboratorium. Przy prośbie o budowę albo zmianę: "
+    "dostają zwykłą odpowiedź, bez workflow fabryki. Przy prośbie o budowę albo zmianę: "
     "dopóki context/foundation/start.md nie ma sekcji „## Lista końcowa”, przeczytaj " + START_DOC
     + " i działaj według niego; potem przeczytaj " + SESSION_DOC + " i działaj według niego. "
     + FABRYKA
 )
 
-LABORATORIUM = "Laboratorium fabryka: ta sesja działa w folderze laboratorium. " + FABRYKA
+REPO_FABRYKI = "Fabryka: ta sesja działa w folderze fabryki. " + FABRYKA
 
 
 def context_for(folder):
     """The text to inject for folder, or None for silence."""
     entries = set(os.listdir(folder))
     if os.path.realpath(folder) == LAB:
-        return LABORATORIUM
+        return REPO_FABRYKI
     if MARKER in entries:
         return ZNACZNIK
     if entries <= EMPTY_ALLOWED:

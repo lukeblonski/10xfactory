@@ -15,7 +15,7 @@ Opis nie cytuje skilli. Opis jest dla ludzi: w paczce zmiany w skillach `10x-*` 
 
 - **Co zmienić:** cofnąć sekcję `10x-plan-review` z `docs/zmiany-10x/retro-upgrade-b.md`. W kroku poprawek planu usunąć podpunkt, w którym agent po poprawce wymienia pozostałe miejsca planu i `plan-brief.md`, których dotyka ta sama poprawka. W sekcji o zapisie decyzji, w opisie linii uwagi w `## Decyzje triage`, usunąć zdanie o przyrostku ` · zmienia też: …`. W ścieżce cofnięcia poprawek po nieudanym sprawdzeniu usunąć polecenie zdjęcia tego przyrostka z linii uwag. Sekcja o podagencie triage'u i plik polityki triage'u zostają bez zmian.
 - **Dlaczego:** retrospektywa przebudowa-autopilota oceniła ten krok werdyktem „szkodzi” (D-161 P2, D-211): w trzech zmianach po jego wprowadzeniu uwag rundy 2 wywołanych poprawką rundy 1 było 5, 4 i 6, czyli więcej niż w punkcie wyjścia (2).
-- **Zależności:** cofa sekcję `10x-plan-review` z `docs/zmiany-10x/retro-upgrade-b.md`. Opis linii w sekcji o zapisie decyzji jest wspólny z `10x-impl-review`; obie kopie muszą mieć ten sam tekst (w laboratorium pilnuje tego `scripts/check_refs.py`).
+- **Zależności:** cofa sekcję `10x-plan-review` z `docs/zmiany-10x/retro-upgrade-b.md`. Opis linii w sekcji o zapisie decyzji jest wspólny z `10x-impl-review`; obie kopie muszą mieć ten sam tekst (w repo fabryki pilnuje tego `scripts/check_refs.py`).
 - **Jak sprawdzić:** `grep -c 'zmienia też' skills/10x-plan-review/SKILL.md` wypisuje `0`, `grep -c 'What else the fix changes' skills/10x-plan-review/SKILL.md` wypisuje `0`, a `python3 scripts/check_refs.py` przechodzi.
 
 ## 10x-impl-review

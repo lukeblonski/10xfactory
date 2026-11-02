@@ -33,12 +33,12 @@ Clone the repository into a folder whose path has no spaces or special character
 ```
 python3 scripts/instaluj.py
 ```
-Preview. Shows your Claude Code version, the check of your course files, the files it would write and the two entries it would add to `settings.json` (session-start hook and a sandbox exception for the autopilot). Writes nothing.
+Preview. Shows your Claude Code version, the check of your course files, the files it would write and the five entries it would add to `settings.json` (session-start hook, a sandbox exception for the autopilot, and three read-only rules `Read`, `Glob` and `Grep` for the package folder in `permissions.allow`, so the session reads the package's instructions without asking for access outside your project and cannot change them). Writes nothing.
 
 ```
 python3 scripts/instaluj.py --zapisz
 ```
-Install. Makes a backup first (`<config>/fabryka-kopie/<date-time>/`) and prints its path, then writes the skills and the two settings entries. Running it again adds nothing twice.
+Install. Makes a backup first (`<config>/fabryka-kopie/<date-time>/`) and prints its path, then writes the skills and the five settings entries. Running it again adds nothing twice.
 
 ```
 python3 scripts/instaluj.py --sprawdz
@@ -61,14 +61,17 @@ For later work in that project, write (in Polish) „zrób zmianę: <what you wa
 
 - **The factory speaks Polish.** Its instructions, questions and reports are in Polish.
 - **Deployment from the package is untested.** It was tested only in the lab.
-- **Setting up outside services is manual.** Before a slice that needs accounts or keys (for example a database, hosting or an AI API), you create the accounts and save the keys yourself, following the session's instructions. Version 1.1 will guide you step by step and do everything except creating accounts.
-- **Tests that need local containers run in your terminal.** The agent works in a sandbox without access to Docker, so you run one command for tests that need a local database, and you check each slice in the browser.
+- **Setting up outside services needs you once.** Right after the project start, one access session covers the accounts and keys of the whole roadmap, one step at a time with a check after each: you create missing accounts, log in to command-line tools in your terminal and paste keys that a service does not issue through its command line or API; the agent does the rest.
+- **Tests that need local containers run in CI.** The agent works in a sandbox without access to Docker, so tests that need a local database run in CI on the branch of each slice before the merge. You look at the app once, after the last slice of the roadmap.
 - **The project start may ask you to install `gitleaks`**, and the first CI run may need a one-time fix of the CI file that the session gives you.
 - **Claude Code may ask to read files outside the project** (the package folder). Allow it once ("Yes, but ask again next time"), not for every folder.
 - **Agent steps cannot read skill files in your configuration folder**, so reviews run without some reference files.
 - **Only 10xDevs 3.0 skills are supported.**
 
 ## Changelog
+
+### 1.1.0 — 2026-11-01
+One access session for the whole roadmap right after the start, tests with local services in the CI of the branch, the current plan phase in the autopilot output, buttons in the start conversation and package files without lab-only wording.
 
 ### 1.0.0 — 2026-10-31
 First public release: autopilot for changes, project start from an empty folder, roadmap slices, deployment as a roadmap item, the `intent` skill, shorter path with situational research and frame, review triage, guardrails and the installer with backup and check.

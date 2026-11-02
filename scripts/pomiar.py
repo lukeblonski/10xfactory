@@ -52,19 +52,23 @@ Questions to the human (plan of retro-upgrade-c, phase 2; line format in
 docs/zasady-budowy.md, point 6):
 - `## Pytania do człowieka` of change.md holds one line per question,
   `- rodzaj: <r> · krok: <k> · pytanie: <p> · rekomendacja: <t> · wybór:
-  rekomendacja|inny: <t> · rozstrzygnął: człowiek|agent`, fields in this order
-  (parse_questions); code blocks and blank lines are skipped. A bad line is
-  any other line, a missing field, a wrong order, a kind outside KINDS,
-  `rozstrzygnął` outside człowiek|agent, or `agent` with a choice other than
-  `rekomendacja`;
+  rekomendacja|inny: <t> · rozstrzygnął: człowiek|agent|obserwator`, fields in
+  this order (parse_questions); code blocks and blank lines are skipped. A bad
+  line is any other line, a missing field, a wrong order, a kind outside
+  KINDS, `rozstrzygnął` outside człowiek|agent|obserwator, or `agent` or
+  `obserwator` with a choice other than `rekomendacja`; `obserwator` is a
+  decision of the laboratory's observer, counted apart from the human and the
+  agent;
 - an undo is a `  - **Cofnięcie:** <rodzaj> — <powód>` sub-point of an `I-N`
   entry in `## Interwencje` (parse_undo); an unknown kind, no reason or a
   sub-point without indentation is a bad line;
 - agreement: `wybór: rekomendacja` among the questions decided by the human;
   the column „Pytania (zgodne z rekomendacją)” is `<agreed>/<decided by the
-  human>`, „brak danych” for a change without the section, which leaves the
+  human>`, followed by ` · obserwator: <n>` when the observer decided any,
+  „brak danych” for a change without the section, which leaves the
   denominator of `## Pytania do człowieka` (one row per kind: decided by the
-  human, agreed, changes with such a question, decided by the agent, undos);
+  human, agreed, changes with such a question, decided by the agent, decided
+  by the observer, undos);
 - signals 1 and 2 stay as they are: they are the only source for changes
   archived before the questions section existed (D-122).
 Bad question or undo lines print `BŁĄD PYTANIA: <file>:<line>: …` after the
@@ -193,7 +197,9 @@ KINDS = ("spór recenzenta z autorem", "eskalacja", "płatny przebieg", "zakres"
 QUESTION_FIELDS = ("rodzaj", "krok", "pytanie", "rekomendacja", "wybór", "rozstrzygnął")
 QUESTION_KEYS = ("kind", "step", "question", "recommendation", "choice", "by")
 QUESTION_LINE = re.compile("^- " + " · ".join(f"{name}: (.+?)" for name in QUESTION_FIELDS) + "$")
-DECIDERS = ("człowiek", "agent")
+DECIDERS = ("człowiek", "agent", "obserwator")
+# Deciders whose line always has `wybór: rekomendacja`.
+AUTOMATIC = ("agent", "obserwator")
 AGREED = "rekomendacja"
 OTHER_CHOICE = re.compile(r"^inny: \S")
 UNDO = re.compile(r"^\s+- \*\*Cofnięcie:\*\*\s*(.*)$")
@@ -364,11 +370,11 @@ def _question(line):
     if item["kind"] not in KINDS:
         return None, f"nieznany rodzaj `{item['kind']}`"
     if item["by"] not in DECIDERS:
-        return None, f"`rozstrzygnął` to `{item['by']}`, a nie `człowiek` albo `agent`"
+        return None, f"`rozstrzygnął` to `{item['by']}`, a nie `człowiek`, `agent` albo `obserwator`"
     if item["choice"] != AGREED and not OTHER_CHOICE.match(item["choice"]):
         return None, f"`wybór` to `{item['choice']}`, a nie `rekomendacja` albo `inny: <tekst>`"
-    if item["by"] == "agent" and item["choice"] != AGREED:
-        return None, "`rozstrzygnął: agent` z wyborem innym niż `rekomendacja`"
+    if item["by"] in AUTOMATIC and item["choice"] != AGREED:
+        return None, f"`rozstrzygnął: {item['by']}` z wyborem innym niż `rekomendacja`"
     item["agreed"] = item["choice"] == AGREED
     return item, None
 
@@ -973,9 +979,11 @@ def measure(changes):
 
 
 def question_counts(rows):
-    """{kind: {human, agreed, changes, agent, undo}} over the rows, and the number of rows
-    without a questions section („brak danych”, outside the agreement denominator)."""
-    counts = {kind: {"human": 0, "agreed": 0, "changes": 0, "agent": 0, "undo": 0} for kind in KINDS}
+    """{kind: {human, agreed, changes, agent, observer, undo}} over the rows, and the number of
+    rows without a questions section („brak danych”, outside the agreement denominator). The
+    counts of the human, the agent and the observer are disjoint."""
+    counts = {kind: {"human": 0, "agreed": 0, "changes": 0, "agent": 0, "observer": 0, "undo": 0}
+              for kind in KINDS}
     no_data = 0
     for row in rows:
         for kind in row["undo"]:
@@ -989,6 +997,9 @@ def question_counts(rows):
             if q["by"] == "agent":
                 entry["agent"] += 1
                 continue
+            if q["by"] == "obserwator":
+                entry["observer"] += 1
+                continue
             entry["human"] += 1
             entry["agreed"] += q["agreed"]
             seen.add(q["kind"])
@@ -1001,7 +1012,9 @@ def _questions_cell(row):
     if row["questions"] is None:
         return NO_DATA
     human = [q for q in row["questions"] if q["by"] == "człowiek"]
-    return f"{sum(q['agreed'] for q in human)}/{len(human)}"
+    observer = sum(1 for q in row["questions"] if q["by"] == "obserwator")
+    cell = f"{sum(q['agreed'] for q in human)}/{len(human)}"
+    return cell + (f" · obserwator: {observer}" if observer else "")
 
 
 def _cell(value):
@@ -1088,12 +1101,13 @@ def render(rows, commit, ratings):
     agreed = sum(c["agreed"] for c in counts.values())
     out += ["", f"## {QUESTIONS}", "",
             "| Rodzaj | Pytania rozstrzygnięte przez człowieka | Zgodne z rekomendacją "
-            "| Zmiany z takim pytaniem | Rozstrzygnięte przez agenta | Cofnięcia |",
-            "|---|---|---|---|---|---|"]
+            "| Zmiany z takim pytaniem | Rozstrzygnięte przez agenta "
+            "| Rozstrzygnięte przez obserwatora | Cofnięcia |",
+            "|---|---|---|---|---|---|---|"]
     for kind in KINDS:
         c = counts[kind]
         out.append(f"| {kind} | {c['human']} | {c['agreed']} ({_pct(c['agreed'], c['human'])}) "
-                   f"| {c['changes']} | {c['agent']} | {c['undo']} |")
+                   f"| {c['changes']} | {c['agent']} | {c['observer']} | {c['undo']} |")
     out += ["",
             f"Zgodne z rekomendacją: {agreed} z {human} pytań rozstrzygniętych przez człowieka "
             f"({_pct(agreed, human)}); zmiany bez sekcji `## {QUESTIONS}` ({NO_DATA}, poza "

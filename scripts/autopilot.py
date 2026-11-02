@@ -72,8 +72,18 @@ step's own process, pid the autopilot that started it):
    domains and protected files of the consents in one commit of those paths,
    zgoda_scalenia, the field pliki_chronione and, with `zgoda: sekrety`, the
    `- sekret:` lines of `## Wdrożenie` through secret_attempt (the value on
-   stdin, the output to DEVNULL, the log without it); `nic do wpisania` and
-   exit 0 without consents and chronione/ (so in the laboratory);
+   stdin, the output to DEVNULL, the log without it); `nic do wpisania`
+   without consents and chronione/ (so in the laboratory); last, also after
+   `nic do wpisania`, the CI of the branch (branch_ci_run, D-428): with a
+   workflow of HEAD with the line `# autopilot: ci-galezi` (the CI template
+   of the guardrails) `git push -u origin <id>` and the wait for its run of
+   HEAD (ci_run_wait, as in step 13); a failure stops the step before the
+   archive and the merge with the failed jobs and the last 200 lines of
+   `gh run view --log-failed` in .autopilot-local/<id>/; without such a
+   workflow the log line `brak CI gałęzi` (the laboratory, apps of paczka
+   1.0) and exit 0, but a stop when the main branch has such a workflow and
+   HEAD lost it; the commit CI checked goes to the state (impl-review F4), and
+   step 12 runs that CI again on the commit that merges when it is another one;
 8. testy-fabryki: $AUTOPILOT_EVALS (default scripts/run_evals.sh of the
    laboratory) only for
    the tests that check the files of `git diff --name-only master...<id>`
@@ -113,7 +123,12 @@ step's own process, pid the autopilot that started it):
        archiwum after another stop is refused while b would stop;
 12. checkout-master, merge, push: `git checkout <main branch>`, `git merge
     --ff-only <id>` (the commit of the main branch before it goes to the
-    field glowna_przed_scaleniem first), `git push`;
+    field glowna_przed_scaleniem first), `git push`; when the CI of the branch
+    of step 7 passed on a commit and the branch now ends on another one (the
+    commit of archiwum, a rebase), merge first pushes the branch and waits for
+    that CI on the commit that merges (branch_ci_wait, impl-review-2 F5 of
+    paczka-1-1), and a failure, or that commit without the marker line, stops
+    it before the merge;
 13. wynik-wdrozenia (deploy_result_attempt): skipped (`pominięty: repo nie
     ma ## Wdrożenie w CLAUDE.md`, exit 0) without `## Wdrożenie` in CLAUDE.md
     of the main branch, so in the laboratory; else the fields of
@@ -153,7 +168,12 @@ Every step, also start, a skipped step and the sync, prints exactly
 `autopilot: krok <name>: początek, log <path>` and `autopilot: krok <name>:
 koniec (kod <n>), log <path>`; a skipped step has a log with one line of its
 reason. Logs are in .autopilot-local/<id>/<YYYYmmdd-HHMMSS>-<step>.jsonl
-(`claude -p`) or .log (commands), outside git.
+(`claude -p`) or .log (commands), outside git. Besides them, the `claude -p` step implement (PHASE_STEPS)
+prints the phase line `autopilot: krok <name>: faza <n> z <total>: <heading>`
+after its start line and, every REFRESH seconds, whenever the phase of plan.md
+(the `faza` field below) differs from the one the step showed last (P18 of
+paczka-1-1); the human sees it in the output of the background command
+(`/tasks`).
 
 Every `claude -p` step runs with --model $AUTOPILOT_MODEL (default opus),
 --permission-mode acceptEdits, --tools STEP_TOOLS (TOOLS and ToolSearch: the
@@ -166,9 +186,26 @@ that file (the model sees exactly its servers; without it no server at all),
 the explicit --allowedTools list (ALLOWED_TOOLS, which is TOOLS without the
 bare Write and Edit, and `mcp__<server>` for each key of mcpServers of
 .mcp.json), a new --session-id and its --max-turns, in the repo's top folder,
-with stdin from /dev/null and AUTOPILOT_KROK=<id> in its environment; never
---setting-sources or bypassPermissions, so the `deny` rules of the project's
-settings hold in the step. What a step may read and write (step_access, plan.md
+with stdin from /dev/null and AUTOPILOT_KROK=<id> in its environment;
+--setting-sources project,local (STEP_SOURCES: not the user's settings, whose
+sandbox exception would let a step run code outside the sandbox; impl-review
+F2 of paczka-1-1) with effortLevel high (STEP_EFFORT) in --settings; because
+that source does not load ~/.claude/skills, every step gets in --add-dir the
+folder STEP_SKILLS/<hash of the target> under trust_home(), whose
+.claude/skills links to config_dir()/skills, and neither that folder nor the target of the link is
+writable for the step (Edit rules, denyWrite; impl-review-3 F1), and never
+bypassPermissions, so the `deny` rules of the project's settings hold in the
+step. Before every step and every resume the autopilot stops it, without its
+process and with the kind zgoda, when .claude/settings.json or
+.claude/settings.local.json of the repo of the step, in HEAD or in the working
+tree, has a non-empty sandbox exception list, or its hooks, apiKeyHelper or
+awsCredentialExport differ from the main branch, or a file of the working tree
+cannot be read (sandbox_exception_problem, impl-review-3 F9; the reason starts
+with SANDBOX_EXCEPTION_REASON, or SETTINGS_RUN_REASON when only those keys
+changed, and tells the human what to do); in the start the step zabezpieczenia
+may hold in its working tree exactly the hooks the guardrails installer of the
+laboratory writes (guardrails_hooks, impl-review-6 F2).
+What a step may read and write (step_access, plan.md
 of wdrozenie, phase 9): it writes only in the project folder (acceptEdits
 approves the edits there; the bare Write and Edit, which write on every path of
 the computer, are not allowed; the allowed-tools of a skill would allow them in
@@ -206,13 +243,15 @@ skills/guardrails/templates/guardrails.json of the laboratory in
 sandbox.network.allowedDomains and ~/.npm in allowWrite and allowRead
 (default_access), and the step szkielet stops before its process when the
 package_manager of tech-stack.md in HEAD is not npm, with what the human does.
-Claude Code itself still reads the
-skills in ~/.claude and the saved large tool results. Before the step the
+An app step's config_dir()/skills, when it exists, is a working folder too (--add-dir, allowRead), not
+writable (an Edit rule, denyWrite), and the rest of config_dir() is in denyRead; parts Claude Code opens itself (the
+saved large tool results, plugins/) stay readable (D-396). Before the step the
 autopilot stops it, without its process, when a settings file could widen it
-(allow_problems: an `allow` rule of a tool the step does not get in full, bare
-or with a path from //, ~ or with .., additionalDirectories, a sandbox read or
-write path of the user's settings, disableAllHooks, which would switch the
-write hook off; A5, D-252), when a trusted file is not a
+(allow_problems, only the repo's settings files, because the steps do not load
+the user's, impl-review-3 F9: an `allow` rule of a tool the step does not get
+in full, bare or with a path from //, ~ or with .., except the Read, Glob and
+Grep rules of the package folder, additionalDirectories, disableAllHooks, which
+would switch the write hook off; A5, D-252), when a trusted file is not a
 JSON object or cannot be read, and when an allowWrite entry of the app lies in
 a place with keys or in the folder of the trusted fields, or holds one (also
 through a link, and in any case on macOS). The sandbox of every step also has
@@ -237,9 +276,10 @@ goes on (P11), with a stop line `zrobiono: przyjęcie`.
 
 State file .autopilot-local/<id>/stan.json (written atomically: a temporary
 file and os.replace), at the start and the end of every step, at a stop and
-every REFRESH seconds during a `claude -p` step. Fields: krok, faza (the
-`### Phase …` heading above the first `- [ ]` of `## Progress` in plan.md, or
-null), ostatnia_czynnosc (the name and the target of the last tool_use of the
+every REFRESH seconds during a `claude -p` step. Fields: krok, faza
+(`faza <n> z <total>: <heading>` of the `### Phase N: …` above the first
+`- [ ]` of `## Progress` in plan.md, the last phase when every row is checked,
+or null; phase_progress), ostatnia_czynnosc (the name and the target of the last tool_use of the
 step's log, or the running command), czas (ISO 8601 with the zone), log, pid,
 pid_kroku, sesja, migawka, zatrzymanie, przerwanie, zrobione, przyjete,
 nastepny, procesy, synchronizacja, zatrzymania_po_archiwum, krok_pr,
@@ -286,7 +326,7 @@ Options, one at a time; `--odpowiedz` and `--przyjmij` only for a change whose
 state file has `zatrzymanie` (else exit code 2):
 - `--odpowiedz TEKST`: resume the session of the stopped `claude -p` step
   (field `sesja`) with the human's answer: `claude -p --resume <sesja> TEKST`
-  with the step's --model, --permission-mode, --tools, --strict-mcp-config,
+  with the step's --model, --setting-sources, --permission-mode, --tools, --strict-mcp-config,
   --mcp-config (when .mcp.json exists), --add-dir, --settings, --disallowedTools, --allowedTools, --max-turns
   and output flags (the same bounds of reading and writing as the step), log <stamp>-<step>-wznowienie.jsonl,
   judged as a usual run
@@ -390,8 +430,9 @@ posiedzeniu`, and a sentence `Sprawdzenie: jedno polecenie …` in prd.md at a
 scenario step that needs data the app does not show), akceptacja (command, gate of the human: the committed start.md has
 a line `kto: człowiek · akceptacja: …` in `## Akceptacja` and the tree is
 clean, else a stop with rodzaj: akceptacja), szkielet (`/10x-bootstrapper`, plus
-a CI workflow run on push and one command that runs the app locally, in `## Uruchomienie
-lokalne` of CLAUDE.md and in README.md),
+a CI workflow from the CI template of the guardrails, run on a push of every
+branch, the command of `## Testy w CI` and one command that runs the app
+locally, in `## Uruchomienie lokalne` of CLAUDE.md and in README.md),
 zabezpieczenia (`/guardrails`), domeny (command, gate of the human:
 allowed_domains of .claude/guardrails.json and sandbox.network.allowedDomains
 of .claude/settings.json and .claude/settings.local.json minus the ones of
@@ -402,7 +443,9 @@ stop with rodzaj: domena), roadmapa (`/10x-roadmap`; the last line
 start.md, else `- brak w odpowiedzi kroku roadmapa`; every item gets `- **Potrzebuje:**`
 and a matter put off that must be done before use or deployment goes to the
 Prerequisites of the item it blocks), plan-testow (`/10x-test-plan`, ends after
-writing context/foundation/test-plan.md, D-304), github (command: without
+writing context/foundation/test-plan.md, D-304; with the access of the steps of
+the slices it also runs their programs and writes `## Programy kroków` in
+start.md), github (command: without
 origin `gh repo create <folder name> --private --source . --remote origin
 --push`, else `git push -u origin <main branch>`), lista (command, I-11: the
 committed start.md has the section `## Lista końcowa` the session writes after
@@ -429,7 +472,8 @@ package.json and bootstrap-verification without AGENTS.md and *.scaffold, with a
 CI workflow with push and `## Uruchomienie lokalne` with a command in CLAUDE.md,
 .claude/settings.json, .claude/guardrails.json and `## Verify` in CLAUDE.md,
 roadmap.md with `- **Potrzebuje:**` in every item with `- **Change ID:**`,
-test-plan.md); its snapshot is empty and `## Wymaga Twojej decyzji` is not read.
+test-plan.md and a line in `## Programy kroków` without `niedostępne w
+piaskownicy kroku`); its snapshot is empty and `## Wymaga Twojej decyzji` is not read.
 The process of a step runs with its own git identity (<step>@STEP_EMAIL_DOMAIN
 as author and committer), and a commit with that identity in the history of
 HEAD stops the step before every run or resume and after its run, so an
@@ -458,6 +502,7 @@ autopilota` (committed by its path on the main branch, but left uncommitted
 while a section of the human differs from HEAD), the questions of the
 boundary line from `## Pytania do człowieka`. Command hints are
 `python3 <lab>/scripts/autopilot.py --start …`.
+
 """
 
 import argparse
@@ -466,6 +511,7 @@ import fcntl
 import fnmatch
 import glob
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -473,6 +519,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 
@@ -504,9 +551,8 @@ KEY_FOLDERS = ("~/.secrets", "~/.ssh", "~/.aws", "~/.gnupg", "~/.config", "~/.do
     "~/Library/Keychains",)
 KEY_FILES = ("~/.netrc", "~/.npmrc", "~/.git-credentials")
 READ_AGAIN = ("~/.config/git/ignore", "~/.config/git/config", "~/.config/git/attributes")
-# The settings files whose `allow` rules, additionalDirectories and (user files) sandbox read and write paths could
-# widen a step (allow_problems): these of the user (in config_dir()) and SANDBOX_SETTINGS of the repo.
-USER_SETTINGS = ("settings.json", "settings.local.json")
+# The tools whose rule //<package folder>/** the installer of the package writes and allow_problems lets through.
+PACKAGE_READ_RULES = ("Read", "Glob", "Grep")
 # The MCP servers of a step: only the ones of .mcp.json in the top folder of the repo of the change.
 MCP_FILE = ".mcp.json"
 # The model of every `claude -p` step: $AUTOPILOT_MODEL, else DEFAULT_MODEL (A16).
@@ -523,6 +569,8 @@ LOCK = "stan.lock"
 GUARD = "AUTOPILOT_KROK"
 # Seconds between the state refreshes during a `claude -p` step, and before kill after terminate.
 REFRESH = 30
+# Steps that print the phase line `krok <name>: faza <n> z <total>: <heading>` (P18 of paczka-1-1).
+PHASE_STEPS = ("implement",)
 KILL_WAIT = 10
 # --krok (plan.md of poprawki-skilli, „Decyzje planu”): at most KROK_WAIT seconds of waiting for a running step,
 # which must keep the same krok and log for KROK_SETTLE seconds (so the short command step start is not shown);
@@ -541,9 +589,9 @@ CHECK_INTENT = "skills/intent/scripts/check_intent.py"
 MAIN_CANDIDATES = ("master", "main")
 # The steps an application repo skips (D-250), with what the step does not do there.
 APP_SKIPS = {
-    "testy-fabryki": "testy fabryki sprawdzają tylko pliki laboratorium.",
+    "testy-fabryki": "testy fabryki sprawdzają tylko pliki repo fabryki.",
     "wynik-testow": "bez testów fabryki nie ma raportów reviews/evals-*.md.",
-    "synchronizacja-skilli": "skille do folderu skilli Claude Code synchronizuje tylko laboratorium.",
+    "synchronizacja-skilli": "skille do folderu skilli Claude Code synchronizuje tylko repo fabryki.",
     "krok-pr": "propozycje retrospektywy czekają na człowieka na liście końca przebiegu.",
     "synchronizacja-po-pr": "bez kroku PR nie ma scaleń skilli do synchronizacji.",
 }
@@ -558,7 +606,7 @@ KIND_MERGE = "scalenie"
 CONSENT = "zgoda_scalenia"
 DELETED = "usunięty"
 APP_SKIPPED = "pominięty, repo aplikacji: "
-APP_PROPOSAL = "czeka na człowieka (repo aplikacji: przenieś propozycję do zmiany laboratorium)"
+APP_PROPOSAL = "czeka na człowieka (repo aplikacji: przenieś propozycję do zmiany w repo fabryki)"
 APP_PR_RESULT = "czeka na człowieka — krok PR pominięty, repo aplikacji"
 ESCALATIONS = "## Wymaga Twojej decyzji"
 PROGRESS = "## Progress"
@@ -658,6 +706,18 @@ PROTECTED_FIELD = "pliki_chronione"
 PROTECTED_SECTION = "## Pliki chronione"
 WORKFLOWS = ".github/workflows/"
 NOTHING_TO_WRITE = "nic do wpisania"
+# CI of the branch (paczka-1-1, D-428): a workflow of the app with this line (the CI template of the guardrails,
+# CI_TEMPLATE) runs on a push of every branch, so przygotowanie-wdrozenia pushes the branch of the change and waits
+# for that run of HEAD before the archive and the merge; the tests with local services (## Testy w CI of CLAUDE.md,
+# not in verify) run there and not in a step. Without the line (the laboratory, apps of paczka 1.0) one log line.
+BRANCH_CI_MARK = "# autopilot: ci-galezi"
+NO_BRANCH_CI = "brak CI gałęzi"
+BRANCH_CI_PASSED = "CI gałęzi przeszło"
+# The commit whose branch CI passed (state field, impl-review F4 of paczka-1-1): when the branch ends on another commit
+# at the merge, the CI of the branch runs again on that commit (impl-review-2 F5, merge_attempt).
+BRANCH_CI_SHA = "ci_galezi_commit"
+CI_TEMPLATE = "skills/guardrails/templates/ci.yml"
+CI_TESTS = "## Testy w CI"
 SECRET_OUTPUT = "wyjście pominięte: może zawierać sekret"
 # The step after the push (plan.md of wdrozenie, phase 5): in a repo with ## Wdrożenie in CLAUDE.md of the main branch
 # it waits for the CI run of the pushed commit and, when it fails after the deploy step passed, rolls the code back with
@@ -773,7 +833,7 @@ def facts_note(prefix=""):
 def step_tail(lab=""):
     """The end of every `claude -p` prompt: the <fabryka> sentence, FACTS_NOTE and STATE_NOTE (the last one)."""
     path = lab.rstrip("/") or lab_root()
-    return f"\n\n<fabryka> to folder laboratorium: {path}.\n\n" + facts_note(lab) + "\n\n" + STATE_NOTE
+    return f"\n\n<fabryka> to folder fabryki: {path}.\n\n" + facts_note(lab) + "\n\n" + STATE_NOTE
 
 
 # Two separate points of the code review (W9, W13 of wdrozenie), in the prompt of impl-review and not in the skill: the
@@ -834,6 +894,33 @@ ACCEPTANCE = "## Akceptacja"
 # The sections only the human writes (through the session); a step that changes them gets no commit, because the gates
 # akceptacja and domeny trust their lines.
 HUMAN_SECTIONS = (OWNER, CONSENTS, ACCEPTANCE)
+# Every `claude -p` step loads only the settings of the project and the local ones (impl-review F2 of paczka-1-1,
+# decision of the human): the sandbox exception of the human's settings (the key below) would let a step run code
+# outside the sandbox. The effort level of the human's settings comes in --settings instead.
+STEP_SOURCES = "project,local"
+STEP_EFFORT = "high"
+# Without the user's settings Claude Code does not load ~/.claude/skills (impl-review-3 F1 of paczka-1-1, decision of
+# the human): every step gets in --add-dir this folder under trust_home(), whose .claude/skills links to
+# config_dir()/skills (one folder per target, named by its hash); neither the folder nor the target of the link is
+# writable for a step (step_skills).
+STEP_SKILLS = "skille-krokow"
+# Keys of the settings of the project and the local ones that run commands outside the sandbox besides the sandbox
+# exception (impl-review-3 F9 of paczka-1-1): a step stops when their value in HEAD or in the working tree differs
+# from the main branch.
+SETTINGS_RUN_KEYS = ("hooks", "apiKeyHelper", "awsCredentialExport")
+# The key of the sandbox settings whose commands run outside the sandbox, built so that the name is not written whole
+# in this file (criterion P12 of paczka-1-1: no line of the autopilot adds such an entry). A step whose repo has it in
+# a settings file (HEAD or the working tree) stops before its process with the kind zgoda (SANDBOX_EXCEPTION_REASON).
+SANDBOX_EXCEPTION_KEY = "excluded" + "Commands"
+SANDBOX_EXCEPTION_REASON = "ustawienia repo kroku mają wyjątek piaskownicy"
+# The stop on hooks, apiKeyHelper or awsCredentialExport that differ from the main branch (impl-review-3 F9 and
+# impl-review-6 F2 of paczka-1-1): kind zgoda too, but its own reason, which the session leads apart from the
+# exception: the human restores the change or brings it to the main branch.
+SETTINGS_RUN_REASON = "ustawienia repo kroku mają zmienione polecenia poza piaskownicą"
+# The start step that installs the guardrails: in the start its working tree may hold exactly the hooks the
+# installer of the laboratory writes (guardrails_hooks) without a stop (impl-review-6 F2 of paczka-1-1).
+GUARDRAILS_STEP = "zabezpieczenia"
+GUARDRAILS_INSTALLER = "skills/guardrails/scripts/install.py"
 NO_BASIS = "## Decyzje bez podstawy"
 FIRST_SLICE_HEADING = "## Pierwszy kawałek"
 NO_FIRST_SLICE = "- brak w odpowiedzi kroku roadmapa"
@@ -863,6 +950,8 @@ START_SCOPE = "start"
 GITHUB_NAME = re.compile(r"^[A-Za-z0-9._][A-Za-z0-9._-]*$")
 # The default domains of the guardrails (the step domeny compares .claude/guardrails.json of the app with them).
 GUARDRAILS_TEMPLATE = "skills/guardrails/templates/guardrails.json"
+# The one list of programs the steps of the guardrails run and a project does not ship (prompts wymagania, szkielet).
+GUARDRAILS_PROGRAMS = "skills/guardrails/references/required-programs.json"
 GUARDRAILS_APP = ".claude/guardrails.json"
 # A step in an application repo whose access record has no .claude/settings.json (field ustawienia of dostep_krokow;
 # the start before zabezpieczenia) gets the
@@ -897,9 +986,14 @@ REQUIREMENTS_STEP = "wymagania"
 REQUIREMENTS_HEAD = "Sprawdzenie wymagań komputera i scenariusza (osobna sesja, bez skilla)."
 MACHINE = "## Wymagania komputera"
 CHECKABLE = "## Sprawdzalność scenariusza"
-# The step plan-testow (after roadmapa): the test plan of the app before its first slice (D-302, D-304).
+# The step plan-testow (after roadmapa): the test plan of the app before its first slice (D-302, D-304). It is the
+# first `claude -p` step after domeny, so it runs with the access of the steps of the slices (run_access: the record
+# dostep_krokow), and it also runs the programs of those steps there: one line per program in STEP_PROGRAMS of
+# start.md; a line with SANDBOX_MISSING stops the step (paczka-1-1, P13).
 TEST_PLAN_STEP = "plan-testow"
 TEST_PLAN_FILE = "context/foundation/test-plan.md"
+STEP_PROGRAMS = "## Programy kroków"
+SANDBOX_MISSING = "niedostępne w piaskownicy kroku"
 # The section of CLAUDE.md of the app with the one command that runs it locally (szkielet, D-292).
 LOCAL_RUN = "## Uruchomienie lokalne"
 # The field of every roadmap item with the accesses it needs (roadmapa).
@@ -909,7 +1003,7 @@ CHANGE_ID_FIELD = "- **Change ID:**"
 SHAPE_NOTES = "context/foundation/shape-notes.md"
 GREENFIELD = re.compile(r"(?m)^\s*context_type:\s*greenfield\b")
 START_NOTE_TEMPLATE = (
-    "Przebieg startu projektu aplikacji (autopilot laboratorium, claude -p): nikt nie odpowie w trakcie tego "
+    "Przebieg startu projektu aplikacji (autopilot fabryki, claude -p): nikt nie odpowie w trakcie tego "
     "kroku. Każde pytanie skilla rozstrzygnij sam decyzją najlepszą dla prawidłowej realizacji intencji "
     "właściciela (## Opis właściciela w context/foundation/start.md, context/foundation/shape-notes.md), "
     "z zachowaniem założeń z context/foundation/prd.md (gdy jest) i zasad; o takie pytania nie pytaj człowieka: "
@@ -946,6 +1040,20 @@ TEST_PLAN_REQUEST = (
     "z linią rozstrzygnął: agent. Skończ po Phase 4, czyli po zapisie context/foundation/test-plan.md: bez Phase 5 "
     "i 6, bez przekazania do /10x-new, bez schowka i bez nowych folderów w context/changes/. Testy powstają "
     "w kawałkach roadmapy, a nie w osobnych zmianach przed pierwszym kawałkiem (D-304). Nie konfiguruj CI."
+)
+# The second part of the request of the step plan-testow of the start (not of the session, which takes only
+# TEST_PLAN_REQUEST): the programs of the steps of the slices, run in the sandbox of this step (P13).
+STEP_PROGRAMS_REQUEST = (
+    "Programy kroków: ta sesja ma dostęp kroków claude -p kawałków roadmapy (ta sama piaskownica, te same foldery "
+    "zapisu i domeny), więc sprawdź w niej, czy kroki kawałków uruchomią swoje programy. Uruchom w tej sesji "
+    "polecenie sprawdzające projektu (sekcja ## Verify w CLAUDE.md) i każdy jego program osobno, programy "
+    "zabezpieczeń projektu: {programs}, i menedżer pakietów projektu (np. jego polecenie wersji). "
+    "W context/foundation/start.md zapisz sekcję " + STEP_PROGRAMS + " (dopisz ją, gdy jej nie ma, i zastąp jej "
+    "dotychczasowe linie): jedna linia - na program: program, polecenie, wynik działa albo " + SANDBOX_MISSING
+    + " z treścią błędu. Każdy błąd programu w tej sesji (brak programu, odmowa zapisu albo sieci, kod różny od 0) "
+    "to " + SANDBOX_MISSING + ", także gdy na komputerze człowieka program działa. Niczego nie instaluj i nie "
+    "zmieniaj ustawień, żeby program zadziałał: autopilot zatrzyma krok na takiej linii, a decyzję podejmie "
+    "człowiek."
 )
 LOCAL_NOTE = (
     "Tryb lokalny jest mocno preferowany: szkielet uruchamia się i przechodzi polecenie sprawdzające lokalnie bez "
@@ -994,9 +1102,11 @@ START_PROMPTS = {
         "z {lab}docs/sesja-glowna.md (sekcja „Zatrzymanie i samonaprawa”); instalacja programu, start usługi "
         "i zmiana ustawień systemu to zmiany poza repo, więc ich nie robisz. W context/foundation/start.md zapisz "
         "sekcję " + MACHINE + " (dopisz ją, gdy jej nie ma): jedna linia - na wymaganie (wymaganie, jak sprawdzone, "
-        "wynik: spełnione, naprawione albo niespełnione). Każde niespełnione wymaganie zapisz też linią w ## Do "
+        "wynik: spełnione, naprawione albo niespełnione). Wymaganiem jest też każdy program, który uruchamiają "
+        "zabezpieczenia projektu: {programs}. Każde niespełnione wymaganie zapisz też linią w ## Do "
         "decyzji na posiedzeniu, prostymi słowami, z instrukcją dla właściciela albo propozycją lżejszej "
-        "technologii. (2) Sprawdzalność scenariusza: dla każdego kroku scenariusza oceń, czy nietechniczny "
+        "technologii; brakujący program z poleceniem instalacji dla systemu tego komputera. (2) Sprawdzalność "
+        "scenariusza: dla każdego kroku scenariusza oceń, czy nietechniczny "
         "właściciel sprawdzi go w działającej aplikacji bez programisty. W context/foundation/start.md zapisz "
         "sekcję " + CHECKABLE + " (dopisz ją, gdy jej nie ma): jedna linia - na krok (numer kroku, ocena, "
         "dlaczego). Do kroku, który wymaga danych niewidocznych w aplikacji, dopisz w context/foundation/prd.md "
@@ -1007,9 +1117,17 @@ START_PROMPTS = {
         "/10x-bootstrapper context/foundation/tech-stack.md",
         "Przekazanie potwierdzone: context/foundation/tech-stack.md zaakceptował człowiek (## Akceptacja "
         "w context/foundation/start.md). Po szkielecie scal CLAUDE.md.scaffold i AGENTS.md startera z CLAUDE.md "
-        "aplikacji (zostaw w nim odesłania do laboratorium) i usuń pliki *.scaffold i AGENTS.md. Dodaj workflow CI "
-        "w .github/workflows/ (plik .yml), który uruchamia polecenie sprawdzające projektu przy wysłaniu (push) na "
-        "gałąź główną i przy pull requestach; teraz, bo po kroku zabezpieczenia ta ścieżka jest chroniona. Dodaj "
+        "aplikacji (zostaw w nim odesłania do fabryki) i usuń pliki *.scaffold i AGENTS.md. Dodaj workflow CI "
+        "w .github/workflows/ (plik .yml) z szablonu {lab}" + CI_TEMPLATE + ": zostaw jego pierwszą linię "
+        + BRANCH_CI_MARK + " (autopilot czeka na ten workflow na gałęzi zmiany przed scaleniem) i wypełnij każde "
+        "miejsce <…> dla stosu projektu. Workflow uruchamia polecenie sprawdzające projektu przy wysłaniu (push) na "
+        "każdą gałąź i przy pull requestach; dodaj go teraz, bo po kroku zabezpieczenia ta ścieżka jest chroniona. "
+        "Workflow instaluje (albo sprawdza, że już są) programy zabezpieczeń projektu: {programs}, i pobiera pełną "
+        "historię repo, bo skan sekretów sprawdza każdy commit. Testy, które wymagają usług lokalnych (np. kontenera "
+        "albo bazy), uruchamia osobne polecenie w menedżerze pakietów projektu, a nie polecenie sprawdzające: zapisz "
+        "je w odwrotnych apostrofach w sekcji " + CI_TESTS + " w CLAUDE.md aplikacji, a workflow uruchamia je po "
+        "poleceniu sprawdzającym. To polecenie powstaje także wtedy, gdy takich testów jeszcze nie ma, bo dopisują "
+        "je kawałki roadmapy. Dodaj "
         "jedno polecenie uruchomienia lokalnego w menedżerze pakietów projektu: sprawdza wymagania z " + MACHINE
         + " w context/foundation/start.md, uruchamia lokalne usługi, ustawia zmienne środowiska (z lokalnych "
         "usług, a gdy CLAUDE.md ma sekcję ## Dostępy, z plików, których ścieżki ona podaje) i uruchamia serwer. "
@@ -1039,7 +1157,7 @@ START_PROMPTS = {
         "PIERWSZY_KAWALEK: <Change ID polecanego pierwszego kawałka>"),
     TEST_PLAN_STEP: (
         "/10x-test-plan context/foundation/prd.md",
-        TEST_PLAN_REQUEST),
+        TEST_PLAN_REQUEST + " " + STEP_PROGRAMS_REQUEST),
 }
 START_TURNS = {"prd": 100, "technologia": 100, INFRA_STEP: 150, "przeglad": 60, REQUIREMENTS_STEP: 80,
                "szkielet": 200, "zabezpieczenia": 150, ROADMAP_STEP: 100, TEST_PLAN_STEP: 120}
@@ -1050,11 +1168,29 @@ def start_note(step, lab=""):
     return START_NOTE_TEMPLATE.format(lab=lab, step=step)
 
 
+def guardrails_programs():
+    """GUARDRAILS_PROGRAMS of the laboratory of this module (not $AUTOPILOT_LAB): ValueError naming the file when it
+    is missing, not JSON or its programs are not a non-empty list of non-empty strings."""
+    path = os.path.join(lab_root({}), GUARDRAILS_PROGRAMS)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            programs = json.load(fh)["programs"]
+    except (OSError, ValueError, KeyError, TypeError) as err:
+        programs = err
+    if not isinstance(programs, list) or not programs or not all(isinstance(p, str) and p.strip() for p in programs):
+        why = programs if isinstance(programs, Exception) else "programs nie jest niepustą listą niepustych napisów"
+        raise ValueError(f"{path}: {why}. Człowiek przywraca ten plik fabryki (git -C {lab_root({})} "
+                         f"checkout -- {GUARDRAILS_PROGRAMS}) i uruchamia autopilota ponownie")
+    return programs
+
+
 def start_prompt(step, lab=""):
-    """The prompt of a `claude -p` step of the start: the skill call (or the fixed head of przeglad), the request,
-    START_NOTE, the <fabryka> sentence, FACTS_NOTE and STATE_NOTE (step_tail)."""
+    """The prompt of a `claude -p` step of the start: the skill call (or the fixed head of przeglad), the request
+    (with guardrails_programs where it has {programs}), START_NOTE, the <fabryka> sentence, FACTS_NOTE and
+    STATE_NOTE (step_tail)."""
     head, body = START_PROMPTS[step]
-    return f"{head}\n\n{body.format(lab=lab)}\n\n{start_note(step, lab)}" + step_tail(lab)
+    extra = {"programs": ", ".join(guardrails_programs())} if "{programs}" in body else {}
+    return f"{head}\n\n{body.format(lab=lab, **extra)}\n\n{start_note(step, lab)}" + step_tail(lab)
 
 
 # name -> (--max-turns, prompt(cid, lab)) of every `claude -p` step of the start, in the shape of CLAUDE_STEPS.
@@ -1309,16 +1445,38 @@ def section(text, heading):
     return out or []
 
 
-def current_phase(plan_text):
-    """The `### Phase N: …` heading (without `### `) above the first `- [ ]` row of `## Progress` in plan.md;
-    None without such a row."""
-    phase = None
+PHASE_HEADING = re.compile(r"^### Phase (\d+):\s*(.*?)\s*$")
+
+
+def phase_progress(plan_text):
+    """(n, total, heading) of `## Progress` in plan.md: n and heading (the text after `Phase N:`) of the
+    `### Phase N: …` with the first `- [ ]` row outside `#### Manual` (a Manual row waits for a human and
+    the implement step never checks it), or of the last phase when every such row is checked; total is the
+    number of phases. None without a `## Progress` section with phases."""
+    phases, first, manual = [], None, False
     for line in section(plan_text, PROGRESS):
-        if line.startswith("### "):
-            phase = line[4:].strip()
-        elif line.lstrip().startswith("- [ ]"):
-            return phase
-    return None
+        match = PHASE_HEADING.match(line)
+        if match:
+            phases.append((int(match.group(1)), match.group(2)))
+            manual = False
+        elif line.startswith("#### "):
+            manual = line.strip() == "#### Manual"
+        elif phases and first is None and not manual and line.lstrip().startswith("- [ ]"):
+            first = phases[-1]
+    if not phases:
+        return None
+    n, heading = first or phases[-1]
+    return n, len(phases), heading
+
+
+def phase_text(plan_text):
+    """`faza <n> z <total>: <heading>` of phase_progress, or None: the `faza` field of the state file and the
+    phase line `krok <name>: faza <n> z <total>: <heading>` (P18 of paczka-1-1)."""
+    progress = phase_progress(plan_text)
+    if progress is None:
+        return None
+    n, total, heading = progress
+    return f"faza {n} z {total}: {heading}"
 
 
 def decision_entries(text):
@@ -1611,11 +1769,14 @@ def tool_flags(mcp_path, servers, tools=STEP_TOOLS, allowed=ALLOWED_TOOLS, mode=
     trust_deny, the Read rules of the places with keys and, in an application repo, Edit of the laboratory.
     --mcp-config, --add-dir, --disallowedTools and --allowedTools take several values, so another option always
     follows each of them (P0). The permission mode is STEP_MODE (INFRA_MODE for the step infrastruktura of the
-    start)."""
+    start). Every step loads only the settings of STEP_SOURCES (--setting-sources: not the user's settings, whose
+    sandbox exception would let it out of the sandbox) and gets effortLevel STEP_EFFORT in --settings."""
     deny, add_dirs, settings = access or step_access(None, None)
+    # impl-review F2 of paczka-1-1: only the settings of the project and the local ones, and the effort level here.
+    settings = dict(settings, effortLevel=STEP_EFFORT)
     config = ["--mcp-config", mcp_path] if mcp_path else []
     added = [flag for folder in add_dirs for flag in ("--add-dir", folder)]
-    return ["--permission-mode", mode, "--tools", tools, "--strict-mcp-config", *config, *added,
+    return ["--setting-sources", STEP_SOURCES, "--permission-mode", mode, "--tools", tools, "--strict-mcp-config", *config, *added,
             "--settings", json.dumps(settings, ensure_ascii=False), "--disallowedTools", ",".join(deny),
             "--allowedTools", allowed_tools(servers, allowed)]
 
@@ -1946,13 +2107,14 @@ def path_forms(path):
 
 
 def write_place_problem(entry, places):
-    """Why the allowWrite entry `entry` of the app may not go to the step: it lies in a place with keys or in the
-    folder of the trusted fields (trust_home), or holds one (the part before the first wildcard counts, in every form
+    """Why the allowWrite entry `entry` of the app may not go to the step: it lies in a place with keys, in the
+    folder of the trusted fields (trust_home) or in config_dir() (its denyRead, D-396), or holds one (the part before the first wildcard counts, in every form
     of path_forms); None otherwise."""
     parts = absolute(entry).split(os.sep)
     cut = next((i for i, part in enumerate(parts) if any(sign in part for sign in "*?[")), len(parts))
     bases = path_forms(os.sep.join(parts[:cut]) or os.sep)
-    for path, what in [(path, "miejsce z kluczami") for path, _ in places] + [(trust_home(), "zaufany stan autopilota")]:
+    for path, what in [(path, "miejsce z kluczami") for path, _ in places] + [
+            (trust_home(), "zaufany stan autopilota"), (config_dir(), "folder konfiguracji Claude Code")]:
         if any(covers(base, place) or covers(place, base) for base in bases for place in path_forms(absolute(path))):
             return (f"wpis sandbox.filesystem.allowWrite {entry!r} w {SANDBOX_SETTINGS[0]} aplikacji obejmuje {what} "
                     f"{path} albo w nim leży, a krok claude -p dostaje ten wpis do odczytu i zapisu. "
@@ -1991,7 +2153,7 @@ def default_access(run_, name):
     domains, problem = json_domains(template)
     if problem:
         raise ValueError(f"domyślne domeny zabezpieczeń dla kroku claude -p bez {SANDBOX_SETTINGS[0]} aplikacji: "
-                         f"{problem}. Człowiek przywraca ten plik laboratorium (git -C {run_.lab} checkout -- "
+                         f"{problem}. Człowiek przywraca ten plik fabryki (git -C {run_.lab} checkout -- "
                          f"{GUARDRAILS_TEMPLATE}) i uruchamia: {run_.again()}")
     if run_.start and name == SKELETON_STEP:
         manager = package_manager(run_.root)
@@ -2028,7 +2190,7 @@ def app_domains(run_, record=None):
     defaults, problem = json_domains(template)
     if problem:
         raise ValueError(f"kontrola domen z {SANDBOX_SETTINGS[0]} aplikacji przed krokiem claude -p: {problem}. "
-                         f"Człowiek przywraca ten plik laboratorium (git -C {run_.lab} checkout -- "
+                         f"Człowiek przywraca ten plik fabryki (git -C {run_.lab} checkout -- "
                          f"{GUARDRAILS_TEMPLATE}) i uruchamia: {run_.again()}")
     allowed = defaults | set(record.get("zgody_domen") or [])
     kept, dropped = [], []
@@ -2076,6 +2238,39 @@ def write_hook(project):
     return {"PreToolUse": [{"matcher": "|".join(WRITE_HOOK_TOOLS), "hooks": [hook]}]}
 
 
+def step_skills_folder(target):
+    """The folder of step_skills for the real path `target` of the skills (impl-review-6 F3 of paczka-1-1): one folder
+    per target, so runs with another CLAUDE_CONFIG_DIR do not share a link."""
+    return os.path.join(trust_home(), STEP_SKILLS, hashlib.sha256(target.encode("utf-8")).hexdigest()[:16])
+
+
+def step_skills():
+    """(the folder that every `claude -p` step gets in --add-dir, the real path of the skills it shows):
+    STEP_SKILLS/<16 hex of the sha256 of the target> under trust_home(), whose .claude/skills is a link to
+    config_dir()/skills, made or corrected here (impl-review-3 F1 and impl-review-6 F3 of paczka-1-1). A link put in place of something else replaces it only when that is a link; anything else at
+    .claude/skills is a ValueError, because the autopilot does not delete a folder it did not make."""
+    target = os.path.realpath(os.path.join(config_dir(), "skills"))
+    folder = step_skills_folder(target)
+    link = os.path.join(folder, ".claude", "skills")
+    try:
+        os.makedirs(os.path.dirname(link), mode=0o700, exist_ok=True)
+        if os.path.islink(link) and os.readlink(link) == target:
+            return folder, target
+        if os.path.lexists(link) and not os.path.islink(link):
+            raise ValueError(f"{link} nie jest dowiązaniem do {target}, więc kroki claude -p nie dostaną skilli; "
+                             f"człowiek usuwa ten plik albo folder (rm -r {shlex.quote(link)}) i uruchamia autopilota "
+                             "ponownie")
+        part = f"{link}.{os.getpid()}"
+        if os.path.lexists(part):
+            os.unlink(part)
+        os.symlink(target, part)
+        os.replace(part, link)
+    except OSError as exc:
+        raise ValueError(f"nie da się przygotować folderu skilli kroków {folder} ({exc}); człowiek sprawdza ten folder "
+                         "i uruchamia autopilota ponownie") from None
+    return folder, target
+
+
 def step_access(root, lab, places=None, writes=(), domains=()):
     """(the rules of --disallowedTools, the folders of --add-dir, the object of --settings) of a `claude -p` step in
     the repo `root` (None: the laboratory) with the places with keys `places` (fixed_places by default), the
@@ -2085,25 +2280,39 @@ def step_access(root, lab, places=None, writes=(), domains=()):
     outside it) with denyRead of the places, allowRead of READ_AGAIN and denyWrite of trust_home (Bash does not write
     the trusted fields, impl-review-3 F2), and write_hook of the project (`root`, else the laboratory `lab`; neither:
     no write). An application repo (is_app): reads outside
-    the working folders blocked (permissions.blockReadsOutsideWorkingDirectories), the laboratory in --add-dir (its
-    docs) but not writable (Edit(/<lab>/**) in the rules, the laboratory in denyWrite), `writes` in allowWrite and
-    allowRead, and `domains`, when there are any, in sandbox.network.allowedDomains."""
+    the working folders blocked (permissions.blockReadsOutsideWorkingDirectories), the laboratory (its docs) and
+    config_dir()/skills (when it exists, also in allowRead) in --add-dir but not writable (Edit(/<folder>/**) in the
+    rules, denyWrite), config_dir() in denyRead, `writes` in allowWrite and allowRead, and `domains`, when there are
+    any, in sandbox.network.allowedDomains."""
+    # impl-review-3 F1 of paczka-1-1: every step, also in the laboratory, gets the folder of step_skills last in
+    # --add-dir, it and the target of its link not writable (Edit rules, denyWrite); ValueError from step_skills.
     places = fixed_places() if places is None else places
     deny = [trust_deny()] + read_rules(places)
     filesystem = {"denyRead": [path for path, _ in places], "allowRead": list(READ_AGAIN), "denyWrite": [trust_home()]}
     settings = {"sandbox": {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False,
                             "filesystem": filesystem}, "hooks": write_hook(root or lab)}
     add_dirs = []
+    skills_folder, skills_target = step_skills()
     if root is not None and is_app(root, lab):
-        folder = os.path.realpath(lab)
+        skills = os.path.realpath(os.path.join(config_dir(), "skills"))
+        readable = [skills] if os.path.isdir(skills) else []
         settings["permissions"] = {"blockReadsOutsideWorkingDirectories": True}
-        add_dirs.append(folder)
-        deny.append(f"Edit(/{folder}/**)")
-        filesystem["denyWrite"].append(folder)
+        filesystem["denyRead"].append(os.path.realpath(config_dir()))
+        for folder in [os.path.realpath(lab)] + readable:
+            add_dirs.append(folder)
+            deny.append(f"Edit(/{folder}/**)")
+            filesystem["denyWrite"].append(folder)
         filesystem["allowWrite"] = list(writes)
-        filesystem["allowRead"] += list(writes)
+        filesystem["allowRead"] += list(writes) + readable
         if domains:
             settings["sandbox"]["network"] = {"allowedDomains": list(domains)}
+    # impl-review-3 F1 of paczka-1-1: the skills of the user for every step, without their write.
+    add_dirs.append(skills_folder)
+    for folder in (skills_folder, skills_target):
+        if f"Edit(/{folder}/**)" not in deny:
+            deny.append(f"Edit(/{folder}/**)")
+        if folder not in filesystem["denyWrite"]:
+            filesystem["denyWrite"].append(folder)
     return deny, add_dirs, settings
 
 
@@ -2112,17 +2321,18 @@ def config_dir():
     return os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude")
 
 
-def allow_problems(root, guarded):
+def allow_problems(root, guarded, lab):
     """The entries of the settings files that could widen a step whose --allowedTools does not allow the tools
-    `guarded` in full (not_fully_allowed), each with its file: in USER_SETTINGS of config_dir() and SANDBOX_SETTINGS
-    of the repo an `allow` rule of a guarded tool, bare or with a path that starts with // or ~ or has .., and a
-    non-empty permissions.additionalDirectories; in USER_SETTINGS also sandbox.filesystem.allowRead or allowWrite; in
+    `guarded` in full (not_fully_allowed), each with its file: in SANDBOX_SETTINGS of the repo (the steps do not load
+    the user's settings, impl-review-3 F9 of paczka-1-1) an `allow` rule of a guarded tool, bare or with a path that starts with // or ~ or has .., except
+    PACKAGE_READ_RULES whose //<path>/** has the realpath of the package folder `lab` (K5, K6), and a non-empty
+    permissions.additionalDirectories (also the package folder); in
     any of them disableAllHooks, which would switch write_hook off. A file that exists but is not a JSON object is a
     problem too (A5, D-252, D-288)."""
-    files = [(os.path.join(config_dir(), name), True) for name in USER_SETTINGS]
-    files += [(os.path.join(root, path), False) for path in SANDBOX_SETTINGS]
+    # impl-review-3 F9 of paczka-1-1: the steps no longer load the user's settings (STEP_SOURCES), so only the repo's.
+    files = [os.path.join(root, path) for path in SANDBOX_SETTINGS]
     problems = []
-    for path, user in files:
+    for path in files:
         if not os.path.lexists(path):
             continue
         text = read(path)
@@ -2142,18 +2352,117 @@ def allow_problems(root, guarded):
             if name.strip() not in guarded:
                 continue
             target = rest[:-1].strip() if rest.endswith(")") else rest.strip()
+            if (name.strip() in PACKAGE_READ_RULES and rest.endswith(")") and target.startswith("//")
+                    and target.endswith("/**") and os.path.isabs(target[1:-3]) and ".." not in target
+                    and os.path.realpath(target[1:-3]) == os.path.realpath(lab)):
+                continue
             if not paren or target.startswith(("//", "~")) or ".." in target:
                 problems.append(f"{path}: reguła permissions.allow {rule!r}")
         if permissions.get("additionalDirectories"):
             problems.append(f"{path}: permissions.additionalDirectories nie jest puste")
         if data.get("disableAllHooks"):
             problems.append(f"{path}: disableAllHooks wyłącza hook, który blokuje zapis poza projektem")
-        if user:
-            sandbox = data.get("sandbox") if isinstance(data.get("sandbox"), dict) else {}
-            filesystem = sandbox.get("filesystem") if isinstance(sandbox.get("filesystem"), dict) else {}
-            problems += [f"{path}: sandbox.filesystem.{key} nie jest puste" for key in ("allowRead", "allowWrite")
-                         if filesystem.get(key)]
     return problems
+
+
+def settings_run_values(text):
+    """{key: value} of SETTINGS_RUN_KEYS in the settings text (a JSON object), or None when the text is not one."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {key: data.get(key) for key in SETTINGS_RUN_KEYS if data.get(key) is not None}
+
+
+def guardrails_hooks(lab, root, main=None):
+    """The hooks of .claude/settings.json of the repo `root` after the installer of the laboratory's guardrails
+    (GUARDRAILS_INSTALLER, merged_settings) ran on its version of the main branch `main` (HEAD when None); None when
+    that cannot be computed, so no exception is granted (impl-review-6 F2 of paczka-1-1)."""
+    try:
+        base = committed(root, SANDBOX_SETTINGS[0], main or "HEAD")
+        spec = importlib.util.spec_from_file_location("guardrails_install", os.path.join(lab, GUARDRAILS_INSTALLER))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "settings.json")
+            if base is not None:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(base)
+            new, _, _ = module.merged_settings(path, ([], [], []))
+        data = json.loads(new if new is not None else (base or "{}"))
+    except Exception:  # an installer that cannot run grants nothing
+        return None
+    return data.get("hooks") if isinstance(data, dict) else None
+
+
+def sandbox_exception_problem(root, again, main=None, installed_hooks=None):
+    """Why no `claude -p` step may start in the repo `root` (impl-review F2 of paczka-1-1, decision of the human): a
+    file of SANDBOX_SETTINGS has a non-empty sandbox.<SANDBOX_EXCEPTION_KEY> in HEAD or in the working tree, so a step,
+    which loads the settings of the project and the local ones, could run code outside the sandbox. A file that is not
+    JSON counts when its text names the key, a committed file that is not UTF-8 always counts. impl-review-3 F9 of
+    paczka-1-1: so does a file whose SETTINGS_RUN_KEYS (hooks, apiKeyHelper, awsCredentialExport), in HEAD or in the
+    working tree, differ from the main branch `main` (HEAD when None), and a file of the working tree that exists but
+    cannot be read as UTF-8. installed_hooks (guardrails_hooks, only for the start step GUARDRAILS_STEP; impl-review-6
+    F2): hooks of .claude/settings.json in the working tree equal to it do not count as a change. The reason starts
+    with SANDBOX_EXCEPTION_REASON, or with SETTINGS_RUN_REASON when only the keys changed (both the stop kind zgoda),
+    and tells the human what to do; None without such a file."""
+    found, changed = [], []
+    for path in SANDBOX_SETTINGS:
+        try:
+            head = committed(root, path)
+        except UnicodeDecodeError:
+            head = SANDBOX_EXCEPTION_KEY
+        try:
+            base = committed(root, path, main or "HEAD")
+        except UnicodeDecodeError:
+            base = None
+        base_values = settings_run_values(base) if base is not None else {}
+        tree = read(os.path.join(root, path))
+        if tree is None and os.path.lexists(os.path.join(root, path)):
+            found.append(f"{path} (drzewo robocze, plik nieczytelny)")
+            continue
+        for where, text in (("HEAD", head), ("drzewo robocze", tree)):
+            if text is None:
+                continue
+            values = settings_run_values(text)
+            if (values is not None and installed_hooks is not None and where == "drzewo robocze"
+                    and path == SANDBOX_SETTINGS[0] and values.get("hooks") == installed_hooks):
+                values = dict(values)
+                values.pop("hooks")
+                base_values = {k: v for k, v in (base_values or {}).items() if k != "hooks"}
+            if values is not None and base_values is not None and values != base_values:
+                keys = [key for key in SETTINGS_RUN_KEYS if values.get(key) != base_values.get(key)]
+                changed.append(f"{path} ({where}: {', '.join(keys)})")
+            try:
+                data = json.loads(text)
+            except ValueError:
+                data = None
+            if isinstance(data, dict):
+                sandbox = data.get("sandbox") if isinstance(data.get("sandbox"), dict) else {}
+                listed = bool(sandbox.get(SANDBOX_EXCEPTION_KEY))
+            else:
+                listed = SANDBOX_EXCEPTION_KEY in text
+            if listed:
+                found.append(f"{path} ({where})")
+    if not found and not changed:
+        return None
+    key = f"sandbox.{SANDBOX_EXCEPTION_KEY}"
+    if not found:
+        return (f"{SETTINGS_RUN_REASON} ({', '.join(SETTINGS_RUN_KEYS)} inne niż na gałęzi głównej): "
+                f"{', '.join(changed)}. Te klucze uruchamiają polecenia poza piaskownicą, a krok claude -p ładuje "
+                f"ustawienia projektu i lokalne; krok nie rusza. Człowiek sprawdza zmianę (git diff "
+                f"{main or 'HEAD'} -- {' '.join(SANDBOX_SETTINGS)} i drzewo robocze) i przywraca te klucze albo, gdy "
+                f"zmiana jest jego, wprowadza ją na gałąź główną; potem uruchamia: {again}")
+    found += changed
+    return (f"{SANDBOX_EXCEPTION_REASON} ({key}): {', '.join(found)}. Krok claude -p ładuje ustawienia projektu i "
+            f"lokalne, więc polecenie z tej listy uruchomiłby poza piaskownicą, z dostępem do kluczy, sieci i plików "
+            f"poza projektem; krok nie rusza. Człowiek usuwa {key} z tych plików (pliki ustawień zmienia tylko on, "
+            f"w zwykłym Terminalu albo edytorze); gdy klucz był w commicie, sesja commituje poprawiony plik, a potem "
+            f"uruchamia: {again}. "
+            f"Wyjątek dla własnych poleceń człowiek trzyma tylko w ustawieniach użytkownika (~/.claude/settings.json), "
+            f"których kroki nie ładują")
 
 
 def run_access(run_, tools, allowed, servers, name=None):
@@ -2166,7 +2475,11 @@ def run_access(run_, tools, allowed, servers, name=None):
     of the app, a stop of default_access or app_domains or an allowWrite entry in a place with keys or in the folder
     of the trusted fields."""
     root = run_.root
-    problems = allow_problems(root, set(not_fully_allowed(tools, allowed, servers)))
+    hooks = guardrails_hooks(run_.lab, root, run_.main) if run_.start and name == GUARDRAILS_STEP else None
+    problem = sandbox_exception_problem(root, run_.again(), run_.main, hooks)
+    if problem:
+        raise ValueError(problem)
+    problems = allow_problems(root, set(not_fully_allowed(tools, allowed, servers)), run_.lab)
     if problems:
         raise ValueError("ustawienia Claude Code mogą poszerzyć krok claude -p poza projekt: " + "; ".join(problems)
                          + ". Człowiek usuwa te wpisy (pliki ustawień zmienia tylko on), potem uruchamia autopilota "
@@ -2374,9 +2687,20 @@ class Run:
         write_state(self.path, self.state)
 
     def phase(self):
+        """phase_text of the change's plan.md; None in the start."""
         if self.start:
             return None
-        return current_phase(read(os.path.join(change_folder(self.root, self.cid), "plan.md")))
+        return phase_text(read(os.path.join(change_folder(self.root, self.cid), "plan.md")))
+
+    def show_phase(self, name, shown):
+        """In a step of PHASE_STEPS, the phase line `krok <name>: faza <n> z <total>: <heading>` when the `faza`
+        field just written differs from `shown` (the phase this step showed last, None at its start); nothing
+        without a phase. Returns the phase this step has shown now."""
+        value = self.state.get("faza")
+        if name not in PHASE_STEPS or value is None or value == shown:
+            return shown
+        say(f"krok {name}: {value}")
+        return value
 
     def begin(self, name, path, session=None):
         """The start of a step: the state file first, then the start line."""
@@ -2939,7 +3263,7 @@ def start_trace(root, step):
                 return f"sekcja {heading} w {START_FILE} nie ma żadnej linii - …"
         return None
     if step == TEST_PLAN_STEP:
-        return missing(TEST_PLAN_FILE)
+        return missing(TEST_PLAN_FILE) or step_programs_problem(read(os.path.join(root, START_FILE)))
     if step == "zabezpieczenia":
         problem = missing(".claude/settings.json") or missing(GUARDRAILS_APP) or missing("CLAUDE.md")
         if problem:
@@ -2964,6 +3288,25 @@ def ci_workflow_missing(root):
         if name.endswith((".yml", ".yaml")) and re.search(r"\bpush\b", read(os.path.join(folder, name)) or ""):
             return None
     return "brak workflow CI uruchamianego przy wysłaniu (plik .github/workflows/*.yml albo *.yaml ze słowem push)"
+
+
+def step_programs_problem(start_text):
+    """Why the trace of the programs of the steps (STEP_PROGRAMS of start.md, written by plan-testow in the sandbox
+    of the steps of the slices) stops the step: no line - …, or lines with SANDBOX_MISSING, listed with what the
+    human does; None when every line says the program works."""
+    lines = [line.strip() for line in section(start_text, STEP_PROGRAMS) if line.startswith("- ")]
+    if not lines:
+        return f"sekcja {STEP_PROGRAMS} w {START_FILE} nie ma żadnej linii - …"
+    missing = [line for line in lines if SANDBOX_MISSING in line]
+    if not missing:
+        return None
+    return (f"programy kroków {SANDBOX_MISSING} (krok {TEST_PLAN_STEP} ma dostęp kroków claude -p kawałków, więc "
+            f"kroki kawałków też ich nie uruchomią): {' | '.join(missing)}. Sesja pokazuje człowiekowi te linie "
+            "z błędem i nie zmienia ich sama: linia działa powstaje tylko w tym kroku, który uruchamia program "
+            "w piaskownicy kroków. Fabryka nie poszerza sama piaskownicy: człowiek decyduje, co zrobić (np. inny "
+            "program albo inna technologia, domena przez linię zgoda: domena <host> w ## Zgody w "
+            f"{START_FILE}), a potem uruchamia autopilota startu ponownie; krok {TEST_PLAN_STEP} ruszy od nowa "
+            "i sprawdzi programy jeszcze raz")
 
 
 def local_run_missing(root):
@@ -3521,8 +3864,10 @@ def retro_step(run_):
     kept = old.get("master_przed") if isinstance(old, dict) and old.get("kod") is None else None
     record = {"master_przed": kept or before.stdout.strip(), "kod": None, "wynik": []}
     run_.save(krok_pr=record)
-    say(f"krok PR: {found}; krok może trwać długo i kosztować: płatne sesje claude -p autora i recenzenta "
-        "(do ok. 4 USD na propozycję z Miejscem docelowym w skills/ albo context/foundation/lessons.md)")
+    say(f"krok PR: {found}; krok może trwać długo i kosztować: płatne sesje claude -p autora, recenzenta i "
+        "jednej poprawki po testach (do ok. 8 USD na propozycję z Miejscem docelowym w skills/ albo "
+        "context/foundation/lessons.md); krok niczego nie scala sam i nie uruchamia płatnych testów skilli, każdy PR "
+        "czeka na człowieka (decyzja człowieka 2026-11-02)")
     command, code, output = commands_attempt(run_, RETRO_PR_STEP, [retro_pr_program(run_.lab) + [cid]])
     run_.save(krok_pr=dict(record, kod=code, wynik=[line.rstrip() for line in output.splitlines()
                                                      if PR_LINE.match(line)]))
@@ -3646,19 +3991,84 @@ def checkout_main_attempt(run_):
                                                                 [["git", "checkout", run_.main]])
 
 
+def branch_moved(root, cid, tip, back, again):
+    """None when the branch cid still ends on tip, the commit the CI of the branch checked; else the reason of a stop
+    that names the later commits (impl-review-4 F3 of paczka-1-1): nothing merges, so no commit stays out of the
+    merge without a line and none merges unchecked."""
+    now_ = run(["git", "rev-parse", "--verify", "-q", f"refs/heads/{cid}"], root)
+    if now_.returncode == 0 and now_.stdout.strip() == tip:
+        return None
+    later = run(["git", "log", "--oneline", f"{tip}..refs/heads/{cid}"], root)
+    names = "; ".join(line for line in later.stdout.splitlines() if line.strip()) if later.returncode == 0 else ""
+    return (f"gałąź {cid} zmieniła się w trakcie czekania na CI gałęzi: CI sprawdziło commit {tip[:7]}, a gałąź "
+            f"ma teraz {names or 'inną głowę'}; nic nie zostało scalone, potem: {back}{again}")
+
+
 def merge_attempt(run_):
-    """merge: `git merge --ff-only <id>`, after the commit of the main branch before it goes to the field
+    """merge: `git merge --ff-only <the commit the CI of the branch checked>` (`<id>` without the CI of the branch),
+    after the commit of the main branch before it goes to the field
     glowna_przed_scaleniem of the state file (wynik-wdrozenia names it as the version that runs after a failed
-    deploy). A new run after the branch is already in HEAD keeps the commit saved before."""
+    deploy). A new run after the branch is already in HEAD keeps the commit saved before. When the CI of the branch
+    passed on a commit (BRANCH_CI_SHA) and the branch now ends on another one (the commit of archiwum, a later commit,
+    a rebase), the CI of the branch runs again on the commit that merges (impl-review-2 F5 of paczka-1-1, decision of
+    the human): its workflow with BRANCH_CI_MARK in that commit, `git push -u origin <id>` and the wait
+    (branch_ci_wait), all in the log of the step; a failure, that commit without the marker, or a branch that moved
+    during the wait (branch_moved) stops the step before the merge. Returns (command, code, output) or, at a stop on
+    the CI, (command, 1, the reason, None)."""
     root, cid = run_.root, run_.cid
     head = ["git", "rev-parse", "HEAD"]
     before = run(head, root)
     if before.returncode != 0:
         return failed_check(run_, "merge", shlex.join(head), before)
+    checked, tip = run_.state.get(BRANCH_CI_SHA), None
+    if checked:
+        branch = ["git", "rev-parse", "--verify", "-q", f"refs/heads/{cid}"]
+        found = run(branch, root)
+        if found.returncode != 0:
+            return failed_check(run_, "merge", shlex.join(branch), found)
+        tip = found.stdout.strip()
     merged = run(["git", "merge-base", "--is-ancestor", cid, "HEAD"], root).returncode == 0
     if not (merged and run_.state.get(MAIN_BEFORE)):
         run_.save(**{MAIN_BEFORE: before.stdout.strip()})
-    return commands_attempt(run_, "merge", [["git", "merge", "--ff-only", cid]])
+    # impl-review-3 F7 of paczka-1-1: with the CI of the branch the merge takes the commit it checked, not the name of
+    # the branch, so a commit that lands on the branch during the wait does not merge unchecked.
+    merge = ["git", "merge", "--ff-only", tip or cid]
+    if not checked or tip == checked:
+        return commands_attempt(run_, "merge", [merge])
+    path = log_path(root, cid, "merge", "log")
+    run_.begin("merge", path)
+    with open(path, "w", encoding="utf-8") as fh:
+        def note(line, show=False):
+            fh.write(f"{line}\n")
+            fh.flush()
+            if show:
+                say(f"krok merge: {line}")
+
+        note(f"gałąź {cid} kończy się na commicie {tip[:7]}, a CI gałęzi sprawdziło {checked[:7]}; CI gałęzi "
+             f"sprawdza commit, który idzie do scalenia", show=True)
+        workflow = branch_ci_workflow(root, tip)
+        back = f"git switch {run_.main} i " if run_.main else ""
+        try:
+            if workflow is None:
+                reason = (f"commit {tip[:7]} gałęzi {cid}, który idzie do scalenia, nie ma linii {BRANCH_CI_MARK} w "
+                          f"żadnym pliku {WORKFLOWS}, a CI gałęzi sprawdziło commit {checked[:7]} z tą linią; linię "
+                          f"przywraca commit na gałęzi {cid}, potem: {back}{run_.again()}")
+            else:
+                reason = branch_ci_wait(run_, fh, note, tip, workflow, "merge", "więc kawałek nie idzie do scalenia",
+                                        back)
+                if reason is None:
+                    reason = branch_moved(root, cid, tip, back, run_.again())
+        except OSError as exc:
+            reason = f"błąd zapisu albo odczytu pliku: {exc}"
+        if reason is not None:
+            note(reason)
+            code = 1
+        else:
+            code = logged_command(run_, fh, merge)
+    run_.end("merge", path, code)
+    if reason is not None:
+        return shlex.join(merge), 1, reason, None
+    return shlex.join(merge), code, read(path) or ""
 
 
 # The step przygotowanie-wdrozenia (plan.md of wdrozenie, phase 4).
@@ -4101,8 +4511,9 @@ def prep_attempt(run_):
     and the first that fails stops the step before anything is written; then the protected files and the domains of
     the consents, one commit of only those paths, the consent to the merge and the field pliki_chronione, last the
     secrets. Nothing to do (no consent of the kinds domena, plik and sekrety and no file in chronione/): the log line
-    NOTHING_TO_WRITE and exit 0, after the comparison of ## Wdrożenie when CLAUDE.md has it. Returns (command, code,
-    output or the reason to stop, kind of the stop or None)."""
+    NOTHING_TO_WRITE and exit 0, after the comparison of ## Wdrożenie when CLAUDE.md has it. After every path that
+    passes, the CI of the branch (branch_ci_run). Returns (command, code, output or the reason to stop, kind of the
+    stop or None)."""
     name = PREP_STEP
     command = f"{name}: zgody, pliki chronione, sekrety w CI i domeny, zapis po zgodzie, sekrety"
     path = log_path(run_.root, run_.cid, name, "log")
@@ -4116,6 +4527,8 @@ def prep_attempt(run_):
 
         try:
             reason, kind = prep_run(run_, note)
+            if reason is None:
+                reason = branch_ci_run(run_, fh, note)
         except OSError as exc:
             reason, kind = f"błąd zapisu albo odczytu pliku: {exc}", None
         if reason is not None:
@@ -4427,6 +4840,143 @@ def deploy_result_attempt(run_):
     return command, code, (read(path) or "") if reason is None else reason, None
 
 
+def ci_run_wait(run_, fh, note, sha, workflow, unknown):
+    """Wait for the CI run of the workflow `workflow` (a file name of .github/workflows/) for the commit `sha`:
+    `gh run list` every CI_POLL seconds for at most CI_APPEAR seconds, then `gh run watch <id> --exit-status` for at
+    most CI_FINISH seconds, every gh command and its output in the open log fh. Returns (run id, exit code of the
+    watch, None), or (None, None, reason to stop) when a gh command fails or no run appears (`unknown` ends that
+    reason: what is then not known and how the human checks it)."""
+    root = run_.root
+    listing = gh_program() + ["run", "list", "--commit", sha, "--workflow", workflow, "--json",
+                              "databaseId,status,conclusion"]
+    deadline = time.monotonic() + CI_APPEAR
+    while True:
+        result = run(listing, root, GH_CALL)
+        fh.write(f"$ {shlex.join(listing)}\n{result.stdout}{result.stderr}kod {result.returncode}\n")
+        fh.flush()
+        if result.returncode != 0:
+            return None, None, command_reason(shlex.join(listing), result.returncode, result.stdout + result.stderr)
+        try:
+            runs = json.loads(result.stdout or "[]")
+        except ValueError:
+            return None, None, f"{shlex.join(listing)} nie wypisał listy JSON: {tail(result.stdout)}"
+        ids = [item["databaseId"] for item in runs if isinstance(item, dict) and item.get("databaseId") is not None] \
+            if isinstance(runs, list) else []
+        if ids:
+            break
+        if time.monotonic() >= deadline:
+            return None, None, (f"przebieg CI workflow {workflow} dla commita {sha[:7]} nie pojawił się w "
+                                f"{CI_APPEAR} s, {unknown}")
+        time.sleep(CI_POLL)
+    run_id = str(ids[0])
+    note(f"przebieg CI {run_id} (workflow {workflow}, commit {sha[:7]}): czekam na jego koniec", show=True)
+    code = logged_command(run_, fh, gh_program() + ["run", "watch", run_id, "--exit-status"], timeout=CI_FINISH)
+    return run_id, code, None
+
+
+def ci_failure(run_, fh, run_id, step):
+    """After a failed CI run `run_id`: its jobs (`gh run view --json jobs`) and the last 200 lines of `gh run view
+    --log-failed` in .autopilot-local/<id>/<stamp>-<step>-ci.log. Returns (jobs, the sentence with the path of that
+    log, None), or (None, None, reason to stop) when the jobs cannot be read."""
+    root = run_.root
+    gh = gh_program()
+    view = gh + ["run", "view", run_id, "--json", "jobs"]
+    result = run(view, root, GH_CALL)
+    fh.write(f"$ {shlex.join(view)}\n{result.stdout}{result.stderr}kod {result.returncode}\n")
+    fh.flush()
+    if result.returncode != 0:
+        return None, None, command_reason(shlex.join(view), result.returncode, result.stdout + result.stderr)
+    try:
+        jobs = json.loads(result.stdout).get("jobs")
+    except (ValueError, AttributeError):
+        jobs = None
+    if not isinstance(jobs, list):
+        return None, None, f"{shlex.join(view)} nie wypisał obiektu JSON z listą jobs: {tail(result.stdout)}"
+    log = run(gh + ["run", "view", run_id, "--log-failed"], root, GH_CALL)
+    path = log_path(root, run_.cid, f"{step}-ci", "log")
+    with open(path, "w", encoding="utf-8") as out:
+        out.write("\n".join(log.stdout.splitlines()[-200:]) + "\n")
+    return jobs, f"log nieudanych kroków CI (gh run view {run_id} --log-failed | tail -n 200): {rel(root, path)}", None
+
+
+def branch_ci_workflow(root, ref="HEAD"):
+    """The file name of the workflow in .github/workflows/ of `ref` with the line BRANCH_CI_MARK (the first by name),
+    or None: the CI the branch of a change waits for in przygotowanie-wdrozenia."""
+    listed = run(["git", "ls-tree", "-z", "--name-only", ref, "--", WORKFLOWS], root).stdout
+    for path in sorted(p for p in listed.split("\0") if p.endswith((".yml", ".yaml"))):
+        if any(line.strip() == BRANCH_CI_MARK for line in (committed(root, path, ref) or "").splitlines()):
+            return os.path.basename(path)
+    return None
+
+
+def branch_ci_run(run_, fh, note):
+    """The end of przygotowanie-wdrozenia (D-428): without a workflow with BRANCH_CI_MARK the log line NO_BRANCH_CI;
+    with it the branch of the change goes to origin (`git push -u origin <id>`, no --force) and the step waits for
+    the run of that workflow for HEAD (ci_run_wait); success: the line BRANCH_CI_PASSED and the commit in the state
+    field BRANCH_CI_SHA (merge_attempt compares the branch with it). Returns the reason to stop (the main branch has
+    the marker and HEAD lost it, no origin, another branch, a failed push, no run, a run past CI_FINISH, a failed run
+    with its jobs and the path of its log) or None."""
+    root, cid = run_.root, run_.cid
+    workflow = branch_ci_workflow(root)
+    on_main = branch_ci_workflow(root, run_.main) if run_.main else None
+    if workflow is None and on_main is not None:
+        return (f"{WORKFLOWS}{on_main} na gałęzi głównej {run_.main} ma linię {BRANCH_CI_MARK}, a HEAD gałęzi {cid} "
+                f"nie ma jej w żadnym pliku {WORKFLOWS}, więc CI gałęzi nie ruszyłoby; linię przywraca commit na "
+                f"gałęzi {cid}, potem: {run_.again()}")
+    if workflow is None:
+        note(f"{NO_BRANCH_CI}: żaden plik {WORKFLOWS} w HEAD nie ma linii {BRANCH_CI_MARK}")
+        return None
+    where = f"{WORKFLOWS}{workflow}"
+    if run(["git", "remote", "get-url", "origin"], root).returncode != 0:
+        return (f"{where} ma linię {BRANCH_CI_MARK}, więc gałąź {cid} czeka przed scaleniem na swoje CI, a repo nie "
+                f"ma zdalnego origin, na które da się ją wysłać. Człowiek dodaje origin (git remote add origin <adres "
+                f"repo>) albo usuwa tę linię z {where} w commicie na gałęzi {cid}, potem uruchamia: {run_.again()}")
+    branch = current_branch(root)
+    if branch != cid:
+        return f"bieżąca gałąź to {branch or 'odłączony HEAD'}, a CI gałęzi sprawdza gałąź {cid}"
+    found = run(["git", "rev-parse", "HEAD"], root)
+    if found.returncode != 0:
+        return command_reason("git rev-parse HEAD", found.returncode, found.stdout + found.stderr)
+    return branch_ci_wait(run_, fh, note, found.stdout.strip(), workflow, PREP_STEP,
+                          "więc kawałek nie idzie do archiwum ani do scalenia", "")
+
+
+def branch_ci_wait(run_, fh, note, sha, workflow, step, blocked, back):
+    """The shared part of the CI of the branch (branch_ci_run and merge_attempt): `git push -u origin <id>` (no
+    --force) and the wait for the run of `workflow` for the commit `sha` (ci_run_wait); success: the line
+    BRANCH_CI_PASSED and `sha` in the state field BRANCH_CI_SHA. Returns the reason to stop (a failed push, no run, a
+    run past CI_FINISH, a failed run with its jobs and the path of its log in <stamp>-<step>-ci.log, with `blocked`:
+    what does not happen, and `back`: what the human does before running the autopilot again) or None."""
+    cid = run_.cid
+    push = ["git", "push", "-u", "origin", cid]
+    code = logged_command(run_, fh, push)
+    if code != 0:
+        return (f"polecenie {shlex.join(push)} zakończyło się kodem {code} (wyjście w logu kroku), więc CI gałęzi "
+                f"nie ruszyło; po naprawie {back}uruchom: {run_.again()}")
+    listing = gh_program() + ["run", "list", "--commit", sha, "--workflow", workflow]
+    run_id, code, reason = ci_run_wait(run_, fh, note, sha, workflow,
+                                       f"więc nie wiadomo, czy testy gałęzi przeszły; sprawdź sam: "
+                                       f"{shlex.join(listing)}")
+    if reason is not None:
+        return reason
+    if code == 0:
+        run_.save(**{BRANCH_CI_SHA: sha})
+        note(f"{BRANCH_CI_PASSED} (przebieg {run_id}, workflow {workflow}, commit {sha[:7]})", show=True)
+        return None
+    watch = shlex.join(gh_program() + ["run", "watch", run_id, "--exit-status"])
+    if code == TIMEOUT_CODE:
+        return (f"przebieg CI gałęzi {run_id} nie skończył się w {CI_FINISH} s, więc nie wiadomo, czy testy gałęzi "
+                f"przeszły; sprawdź sam: {watch}, potem {back}uruchom: {run_.again()}")
+    jobs, details, reason = ci_failure(run_, fh, run_id, step)
+    if reason is not None:
+        return reason
+    parts = failed_parts(jobs)
+    failed = ", ".join(f"job {job}, krok {part}" if part else f"job {job}" for job, part in parts)
+    return (f"CI gałęzi nie przeszło ({failed or f'{watch} zakończył się kodem {code}'}; workflow {workflow}, commit "
+            f"{sha[:7]}), {blocked}; {details}. Poprawka idzie na gałąź {cid} w commicie, potem: {back}"
+            f"{run_.again()}")
+
+
 def deploy_result_run(run_, claude, fh, note):
     """The work of deploy_result_attempt; returns the reason to stop or None. The fields of ## Wdrożenie the step runs
     must equal sekcje_startu (else a stop without any gh command). Then the CI run of the workflow for the commit HEAD:
@@ -4460,29 +5010,11 @@ def deploy_result_run(run_, claude, fh, note):
     if not workflow:
         return (f"{DEPLOY} w CLAUDE.md nie ma pola „{DEPLOY_WORKFLOW}”, więc nie wiadomo, na który przebieg CI "
                 f"czekać; {by_hand}")
-    deadline = time.monotonic() + CI_APPEAR
-    while True:
-        result = run(listing, root, GH_CALL)
-        fh.write(f"$ {shlex.join(listing)}\n{result.stdout}{result.stderr}kod {result.returncode}\n")
-        fh.flush()
-        if result.returncode != 0:
-            return command_reason(shlex.join(listing), result.returncode, result.stdout + result.stderr)
-        try:
-            runs = json.loads(result.stdout or "[]")
-        except ValueError:
-            return f"{shlex.join(listing)} nie wypisał listy JSON: {tail(result.stdout)}"
-        ids = [item["databaseId"] for item in runs if isinstance(item, dict) and item.get("databaseId") is not None] \
-            if isinstance(runs, list) else []
-        if ids:
-            break
-        if time.monotonic() >= deadline:
-            return (f"przebieg CI workflow {workflow} dla commita {sha[:7]} nie pojawił się w {CI_APPEAR} s, więc nie "
-                    f"wiadomo, czy wdrożenie ruszyło; {by_hand}")
-        time.sleep(CI_POLL)
-    run_id = str(ids[0])
-    note(f"przebieg CI {run_id} (workflow {workflow}, commit {sha[:7]}): czekam na jego koniec", show=True)
+    run_id, code, reason = ci_run_wait(run_, fh, note, sha, workflow,
+                                       f"więc nie wiadomo, czy wdrożenie ruszyło; {by_hand}")
+    if reason is not None:
+        return reason
     watch = gh + ["run", "watch", run_id, "--exit-status"]
-    code = logged_command(run_, fh, watch, timeout=CI_FINISH)
     if code == 0:
         note(f"wdrożenie przeszło; adres: {values.get(DEPLOY_ADDRESS) or f'brak pola {DEPLOY_ADDRESS} w {DEPLOY}'}",
              show=True)
@@ -4494,24 +5026,10 @@ def deploy_result_run(run_, claude, fh, note):
     if code == TIMEOUT_CODE:
         return (f"przebieg CI {run_id} nie skończył się w {CI_FINISH} s (w kolejce albo czeka na zatwierdzenie "
                 f"środowiska), więc nie wiadomo, czy wdrożenie przeszło; sprawdź sam: {shlex.join(watch)}")
-    view = gh + ["run", "view", run_id, "--json", "jobs"]
-    result = run(view, root, GH_CALL)
-    fh.write(f"$ {shlex.join(view)}\n{result.stdout}{result.stderr}kod {result.returncode}\n")
-    fh.flush()
-    if result.returncode != 0:
-        return command_reason(shlex.join(view), result.returncode, result.stdout + result.stderr)
-    try:
-        jobs = json.loads(result.stdout).get("jobs")
-    except (ValueError, AttributeError):
-        jobs = None
-    if not isinstance(jobs, list):
-        return f"{shlex.join(view)} nie wypisał obiektu JSON z listą jobs: {tail(result.stdout)}"
+    jobs, details, reason = ci_failure(run_, fh, run_id, RESULT_STEP)
+    if reason is not None:
+        return reason
     parts = failed_parts(jobs)
-    log = run(gh + ["run", "view", run_id, "--log-failed"], root, GH_CALL)
-    path = log_path(root, run_.cid, f"{RESULT_STEP}-ci", "log")
-    with open(path, "w", encoding="utf-8") as out:
-        out.write("\n".join(log.stdout.splitlines()[-200:]) + "\n")
-    details = f"log nieudanych kroków CI (gh run view {run_id} --log-failed | tail -n 200): {rel(root, path)}"
     if not parts:
         return (f"{shlex.join(watch)} zakończył się kodem {code}, a przebieg nie ma joba ani kroku z porażką, więc "
                 f"nie wiadomo, czy wdrożenie przeszło; {details}")
@@ -4606,6 +5124,8 @@ def claude_step(run_, name, answer=None):
         mcp_path, servers = project_servers(root)
         activity = f"granice odczytu i zapisu przed krokiem {name}"
         access = run_access(run_, tools, allowed, servers, name)
+        activity = f"prośba kroku {name}"
+        text = prompt(cid, os.path.join(run_.lab, "") if run_.app else "") if answer is None else None
     except ValueError as exc:
         # No process starts: a resume keeps the session of the stopped step (a resume stays possible), a fresh
         # step has no session yet, so --odpowiedz cannot resume the step accepted before. The log has the reason.
@@ -4615,11 +5135,11 @@ def claude_step(run_, name, answer=None):
         run_.end(name, path, 1, activity=activity)
         return str(exc), []
     if answer is None:
-        command = step_command(prompt(cid, os.path.join(run_.lab, "") if run_.app else ""), session, turns,
-                               mcp_path, servers, tools, allowed, mode, access)
+        command = step_command(text, session, turns, mcp_path, servers, tools, allowed, mode, access)
     else:
         command = answer_command(session, answer, turns, mcp_path, servers, tools, allowed, mode, access)
     run_.begin(name, path, session)
+    shown = run_.show_phase(name, None)
     processes = dict(run_.state.get("procesy") or {})
     entry = dict(processes.get(session) or {"krok": name, "poczatek": now(), "czas": 0, "logi": []})
     entry["logi"] = list(entry.get("logi") or []) + [rel(root, path)]
@@ -4643,6 +5163,7 @@ def claude_step(run_, name, answer=None):
                 except subprocess.TimeoutExpired:
                     run_.save(faza=run_.phase(),
                               ostatnia_czynnosc=last_tool_use(path) or run_.state.get("ostatnia_czynnosc"))
+                    shown = run_.show_phase(name, shown)
             run_.proc = None
     entry["czas"] = (number(entry.get("czas")) or 0) + time.monotonic() - started
     run_.save(procesy=dict(run_.state.get("procesy") or {}, **{session: entry}))
@@ -4788,7 +5309,10 @@ def stop(run_, name, reason, kind=None):
         # In the start the autopilot command runs outside the sandbox (D-278), so the answer goes in single quotes.
         placeholder = "'<odpowiedź>'" if run_.start else '"<odpowiedź>"'
         say(f"wznowienie kroku {name} z odpowiedzią człowieka: {again} --odpowiedz {placeholder}")
-    if run_.start:
+    if reason.startswith((SANDBOX_EXCEPTION_REASON, SETTINGS_RUN_REASON)):
+        # impl-review-3 F5 of paczka-1-1: --przyjmij does not help here; the human removes the exception.
+        pass
+    elif run_.start:
         if kind == KIND_CONSENT:
             say(f"zgoda człowieka na dostęp kroków: najpierw wpisz w linii zatrzymania w {START_FILE}, kto się "
                 f"zgodził, i zacommituj; potem: {again} --przyjmij (odświeży zapis dostępu z HEAD i uruchomi krok "
@@ -4956,7 +5480,7 @@ def lead(run_, answer=None, resumed=None):
             # The question may follow the denied tool calls or the step's own commits in the reason.
             if run_.start and kind is None and QUESTION_REASON in reason:
                 kind = KIND_QUESTION
-            if kind is None and reason.startswith(ACCESS_REASON):
+            if kind is None and reason.startswith((ACCESS_REASON, SANDBOX_EXCEPTION_REASON, SETTINGS_RUN_REASON)):
                 kind = KIND_CONSENT
             return stop(run_, name, reason, kind)
         if name == "archiwum" and not run_.start:
@@ -5120,11 +5644,11 @@ def main(argv=None):
     if args.start:
         lab = lab_root()
         if not is_app(root, lab):
-            return refuse(f"--start działa tylko w repo aplikacji, a {root} to laboratorium; start projektu idzie "
+            return refuse(f"--start działa tylko w repo aplikacji, a {root} to repo fabryki; start projektu idzie "
                           "w folderze aplikacji.")
         if not os.path.lexists(os.path.join(root, MARKER)):
             return refuse(f"{root} nie ma znacznika {MARKER} w głównym folderze, więc nie jest repo aplikacji "
-                          "laboratorium; --start działa tylko w przygotowanym folderze aplikacji.")
+                          "fabryki; --start działa tylko w przygotowanym folderze aplikacji.")
     path = state_path(root, cid)
     if args.krok:
         # Before the folder and the lock: --krok takes no lock and writes nothing.
