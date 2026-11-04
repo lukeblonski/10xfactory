@@ -148,14 +148,14 @@ def load_config(pdir):
         raise GuardError(f"cannot read {CONFIG_REL} ({exc}). {FIX_CONFIG}")
     if not isinstance(cfg, dict):
         raise GuardError(f"{CONFIG_REL} is not a JSON object. {FIX_CONFIG}")
-    fast_check = cfg.get("fast_check")
-    if fast_check is not None and not isinstance(fast_check, str):
-        raise GuardError(f'"fast_check" in {CONFIG_REL} must be a string or null. {FIX_CONFIG}')
+    # The post-edit check is gone: no hook runs a program of the project. An
+    # old copy of that hook in a project still reads these two keys, so they
+    # are always empty, whatever the file says, and that hook exits 0.
     return {
         "protected": _string_list(cfg, "protected", required=True),
         "secret_allow": _string_list(cfg, "secret_allow", required=False),
-        "fast_check": fast_check or None,
-        "fast_check_include": _string_list(cfg, "fast_check_include", required=False),
+        "fast_check": None,
+        "fast_check_include": [],
         "allowed_domains": _string_list(cfg, "allowed_domains", required=False),
         "allow_write": _string_list(cfg, "allow_write", required=False),
     }

@@ -315,15 +315,6 @@
         [
           "zachowaj",
           13975,
-          14036
-        ],
-        [
-          "dopisz",
-          "Retro PR step:  after git merge --ff-only and git push, run python3 scripts/retro_pr.py <change-id>    ← print only when scripts/retro_pr.py exists in the repo; omit this line otherwise\n\n"
-        ],
-        [
-          "zachowaj",
-          14036,
           14426
         ],
         [
@@ -414,7 +405,7 @@
         ],
         [
           "dopisz",
-          "read or apply the retrospective's proposals. After the merge and `git push`, proposals targeting `skills/` go through the project's PR step (`scripts/retro_pr.py`, when the repo has it); a human decides on the rest after reading `retro.md`.\n- Does not "
+          "read or apply the retrospective's proposals. They are handled after the merge and `git push`, outside this skill, from `retro.md`.\n- Does not "
         ],
         [
           "zachowaj",
@@ -424,7 +415,7 @@
       ],
       "oryginal": "skills/10x-archive/SKILL.md",
       "sha256_oryginalu": "993e9ba98fa067238e9b5851db6a094fea85317518f7c35baa0dda20c9aec637",
-      "sha256_wyniku": "27fbe890b6ef23b014d24eec358af84135dec6b90419c8bae4d8fbf9e9777114"
+      "sha256_wyniku": "9c0435440fd5ec57326cad3f52a9b086c85d884b4152f99eb1609113325b1c6f"
     },
     "skills/10x-bootstrapper/SKILL.md": {
       "operacje": [
@@ -1301,7 +1292,7 @@
         ],
         [
           "dopisz",
-          "**Who:** the phase sub-agent. Its verdict lines go into its result block; of the run report entries in the last paragraph, it writes the Observed ones, and its result block carries the Reported and Skipped items to the main session.\n\n**Tests while you write the phase.** Until the phase's code is written, run only the tests of the files this phase changes (a scoped run, e.g. one test file), plus the single relevant test during the break-check. The full suite runs at most once per phase, in this gate stack at the end of the phase; a full run mid-phase only repeats it. The only further full runs are the ones gate (c) and step 5 require: after a self-fix attempt, or after a file outside `context/` changed once the gate ran. A mistake in a file outside the phase therefore shows up at the end of the phase, not during it.\n\n"
+          "**Who:** the phase sub-agent. Its verdict lines go into its result block; of the run report entries in the last paragraph, it writes the Observed ones, and its result block carries the Reported and Skipped items to the main session.\n\n**Tests.** Run only the tests of the files this phase changes (a scoped run, e.g. one test file), plus the single relevant test during the break-check. The full suite runs once per change, in gate (c) of the last phase (the highest `## Phase N` of the plan); the only further full runs are the ones gate (c) and step 5 require: after a self-fix attempt, or after a file outside `context/` changed once the gate ran. A mistake in a file outside the change's tests therefore shows up in the last phase.\n\n"
         ],
         [
           "zachowaj",
@@ -1324,6 +1315,24 @@
         [
           "zachowaj",
           8093,
+          9155
+        ],
+        [
+          "dopisz",
+          "lint, typecheck and the tests of the files the phase changed; in the last phase the "
+        ],
+        [
+          "zachowaj",
+          9155,
+          9165
+        ],
+        [
+          "dopisz",
+          "suite instead of those tests; "
+        ],
+        [
+          "zachowaj",
+          9189,
           9302
         ],
         [
@@ -1608,7 +1617,7 @@
       ],
       "oryginal": "skills/10x-goal-implement/SKILL.md",
       "sha256_oryginalu": "436470382fd1594bc4815ea297fcad64eb53670af2ca98fca512dcd825629ef9",
-      "sha256_wyniku": "cba45e2fdbcad944e15e3f9408115028ff607b50757726aa8a80f6aee649a931"
+      "sha256_wyniku": "2d0195eb80a42f92813de18964869c674337b1cf732aeb29a787034d95b65e40"
     },
     "skills/10x-goal-implement/references/progress-format.md": {
       "operacje": [
@@ -1994,12 +2003,21 @@
         [
           "zachowaj",
           7497,
+          9465
+        ],
+        [
+          "dopisz",
+          "OBSERVATION, by these definitions:\n  - `CRITICAL` — łamie kryterium akceptacji, test nie przechodzi, gubi dane albo jest dziurą w zabezpieczeniu w ramach modelu zagrożenia zmiany.\n  - `WARNING` — prawdziwy błąd w sytuacji, która zdarza się przy zwykłej pracy, bez złamanego kryterium.\n  - `OBSERVATION` — styl, nazwy, opis, przypadek hipotetyczny.\n"
+        ],
+        [
+          "zachowaj",
+          9499,
           12876
         ]
       ],
       "oryginal": "skills/10x-impl-review-ci/references/impl-review-instructions.md",
       "sha256_oryginalu": "b045095889ac573f6f03b6e4d5c79f0bf199bb530a2dd40b3fee319d44af1cee",
-      "sha256_wyniku": "ecfc663e0a8b1a258eabc66d75303844db7e8f99d1135c7d32024a31dbb2f362"
+      "sha256_wyniku": "ad691a1caa731c1263ccabb3ef583bdbc1c59382cc4b1acf2402c7029002c4f4"
     },
     "skills/10x-impl-review-ci/references/workflow-template.yml": {
       "operacje": [
@@ -2067,7 +2085,7 @@
         ],
         [
           "dopisz",
-          "name the repair command when the precondition fails; the saved report (manual triage); the report of the current round, when recording AUTO decisions (Steps 5–6); `references/triage-policy.md` — read only by the triage sub-agent (Step 5); the previous round's report — read only by the re-review sub-agent (Step 6); `context/foundation/limitations.md` — only to append a limitation entry, and the `## D-<nnn>` headings of `context/foundation/decisions.md`, `limitations.md` and `decisions-archive.md` — only for the number (Step 5, \"Recording the decisions\"; manual triage in Step 7).\n- **Never:** `context/archive/`; files outside the diff in the main context (sub-agents read them); the triage policy in the main context, so the session that wrote the report does not pre-judge the triage.\n\n"
+          "name the repair command when the precondition fails; the saved report (manual triage); the report of the current round, when recording AUTO decisions (Steps 5–6); `references/triage-policy.md` and the „Kiedy pytać człowieka” section of the factory's `CLAUDE.md` — read only by the triage sub-agent (Step 5; the session only checks that the section exists, \"Triage sub-agent\"); the previous round's report — read only by the re-review sub-agent (Step 6); `context/foundation/limitations.md` — only to append a limitation entry, and the `## D-<nnn>` headings of `context/foundation/decisions.md`, `limitations.md` and `decisions-archive.md` — only for the number (Step 5, \"Recording the decisions\"; manual triage in Step 7).\n- **Never:** `context/archive/`; files outside the diff in the main context (sub-agents read them); the triage policy in the main context, so the session that wrote the report does not pre-judge the triage.\n\n"
         ],
         [
           "zachowaj",
@@ -2090,11 +2108,20 @@
         [
           "zachowaj",
           966,
+          1569
+        ],
+        [
+          "dopisz",
+          "**Round 4 never starts.** The review round counts over the whole change: the number of reports of the full series already in `context/changes/<change-id>/reviews/` (`impl-review.md`, `impl-review-<n>.md`) plus one, for a review the user starts too. When it would be 4, review nothing, write no report, print `Round 4 never starts: the limit of three rounds is reached.` and STOP; round 3 has already decided every finding.\n\n"
+        ],
+        [
+          "zachowaj",
+          1569,
           3475
         ],
         [
           "dopisz",
-          "7. **Precondition: change state** (round 1 only). Run `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_change.py <change-id> --rules 1,2,4,6 --phases <reviewed phases>`; for a review of all phases, drop `--phases`, so rule 4 also checks that every criterion has a phase.\n   - **Exit 0** → continue to Step 2.\n   - **Exit 1** → print the problems, and under them one repair line per rule that occurred:\n     - `R1`, `R2`, `R6` → the skill in the `Skill` field of the newest run report in `runs/` written by `/10x-implement`, `/10x-goal-implement`, `/10x-tdd` or `/10x-e2e` (the verifier report does not count), as `→ /<skill> <change-id>`; without such a report, `→ /10x-implement <change-id>`. On start that skill re-checks its checked rows and repairs them;\n     - `R4` → for the human: \"Fix the criteria block in `change.md` or the `**Criteria**:` line in the plan.\"\n\n     Then STOP.\n   - **Exit 2** → print the script's message and STOP. No acceptance criteria → for the human: \"Add the criteria block to `change.md` and a `**Criteria**:` line to each phase of the plan.\" No run reports → `→ /10x-implement <change-id>` (or the skill that implements this change).\n   - On STOP the review writes no report, does not stamp `change.md` and runs no triage. These problems are not findings.\n   - The review never runs rules 3, 5 and 7 — `/10x-archive` does. It builds no criteria table and writes nothing to `runs/`: the verifier agent in `/10x-archive` judges the criteria. The Success Criteria checks in Step 3 work as before.\n\n"
+          "7. **Precondition: change state** (skipped in a re-review). Run `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_change.py <change-id> --rules 1,2,4,6 --phases <reviewed phases>`; for a review of all phases, drop `--phases`, so rule 4 also checks that every criterion has a phase.\n   - **Exit 0** → continue to Step 2.\n   - **Exit 1** → print the problems, and under them one repair line per rule that occurred:\n     - `R1`, `R2`, `R6` → the skill in the `Skill` field of the newest run report in `runs/` written by `/10x-implement`, `/10x-goal-implement`, `/10x-tdd` or `/10x-e2e` (the verifier report does not count), as `→ /<skill> <change-id>`; without such a report, `→ /10x-implement <change-id>`. On start that skill re-checks its checked rows and repairs them;\n     - `R4` → for the human: \"Fix the criteria block in `change.md` or the `**Criteria**:` line in the plan.\"\n\n     Then STOP.\n   - **Exit 2** → print the script's message and STOP. No acceptance criteria → for the human: \"Add the criteria block to `change.md` and a `**Criteria**:` line to each phase of the plan.\" No run reports → `→ /10x-implement <change-id>` (or the skill that implements this change).\n   - On STOP the review writes no report, does not stamp `change.md` and runs no triage. These problems are not findings.\n   - The review never runs rules 3, 5 and 7 — `/10x-archive` does. It builds no criteria table and writes nothing to `runs/`: the verifier agent in `/10x-archive` judges the criteria. The Success Criteria checks in Step 3 work as before.\n\n"
         ],
         [
           "zachowaj",
@@ -2144,6 +2171,47 @@
         [
           "zachowaj",
           6019,
+          6411
+        ],
+        [
+          "dopisz",
+          "OBSERVATION, by these definitions:\n  "
+        ],
+        [
+          "zachowaj",
+          6444,
+          6446
+        ],
+        [
+          "dopisz",
+          "`CRITICAL` — łamie kryterium akceptacji, test nie przechodzi, gubi dane albo jest dziurą w zabezpieczeniu w ramach modelu zagrożenia zmiany.\n  - `WARNING` — prawdziwy błąd w sytuacji, która zdarza się przy zwykłej pracy, bez złamanego kryterium.\n  - `OBSERVATION` — styl, nazwy, opis, przypadek hipotetyczny.\n"
+        ],
+        [
+          "zachowaj",
+          6514,
+          6843
+        ],
+        [
+          "zachowaj",
+          7328,
+          7593
+        ],
+        [
+          "dopisz",
+          "**OBSERVATION "
+        ],
+        [
+          "zachowaj",
+          7606,
+          7691
+        ],
+        [
+          "dopisz",
+          "**CRITICAL and WARNING "
+        ],
+        [
+          "zachowaj",
+          7712,
           8288
         ],
         [
@@ -2153,6 +2221,44 @@
         [
           "zachowaj",
           8296,
+          10015
+        ],
+        [
+          "zachowaj",
+          10083,
+          10951
+        ],
+        [
+          "zachowaj",
+          11029,
+          12000
+        ],
+        [
+          "dopisz",
+          "/api/status.\n\n═══════════════════════════════════════════════════════════\n  OBSERVATION FINDINGS 👁\n═══════════════════════════════════════════════════════════\n\n  "
+        ],
+        [
+          "zachowaj",
+          12023,
+          12122
+        ],
+        [
+          "dopisz",
+          "👁 OBSERVATION\n    "
+        ],
+        [
+          "zachowaj",
+          12211,
+          12945
+        ],
+        [
+          "zachowaj",
+          13301,
+          13311
+        ],
+        [
+          "zachowaj",
+          13319,
           13567
         ],
         [
@@ -2207,7 +2313,7 @@
         ],
         [
           "dopisz",
-          "conditionally.\n\n0. **Start condition** (round 1, before writing anything): if any file in `context/changes/<change-id>/` is untracked or modified, or a dirty file in `context/foundation/` holds this change's entries, commit first — the change folder plus each such `context/foundation/` file, added by name "
+          "conditionally.\n\n0. **Start condition** (a review the user starts, before writing anything): if any file in `context/changes/<change-id>/` is untracked or modified, commit the change folder first, added by name "
         ],
         [
           "zachowaj",
@@ -2216,7 +2322,7 @@
         ],
         [
           "dopisz",
-          "named again in the commit, `git commit -m \"docs(<change-id>): stan przed review\" -- <change folder> <those files>`, so nothing else already staged goes in (never `git add -A`, "
+          "named again in the commit, `git commit -m \"docs(<change-id>): stan przed review\" -- <change folder>`, so nothing else already staged goes in (never `git add -A`, "
         ],
         [
           "zachowaj",
@@ -2225,7 +2331,7 @@
         ],
         [
           "dopisz",
-          "`--no-verify`). A `context/foundation/` file holds this change's entries when its added and removed lines (`git diff -U0 HEAD -- <file>`, so changes already staged count too; lines starting with `+` or `-`, without "
+          "`--no-verify`). Then run `git status --porcelain` and keep "
         ],
         [
           "zachowaj",
@@ -2234,7 +2340,7 @@
         ],
         [
           "dopisz",
-          "`+++`/`---` headers; for an untracked file, its whole content) contain a line `Zmiana: <change-id>` and no `Zmiana:` line with another value. Context lines of the diff do not count: every entry of `decisions.md` and `limitations.md` ends with `- Zmiana: <id>`, so appending a new entry always shows the previous change's line as context. Then run `git status --porcelain` and keep the result; other dirty files escalate in Step 6. Step 6 item 1 uses it. Rounds ≥ 2 start after the previous round's commits, so they skip this.\n"
+          "result; other dirty files escalate in Step 6. Step 6 item 1 uses it. A re-review starts after the previous round's commits, so it skips this.\n"
         ],
         [
           "zachowaj",
@@ -2252,7 +2358,7 @@
         ],
         [
           "dopisz",
-          "absent. Never overwrite an existing report.\n   - Full review series: `reviews/impl-review.md` → `impl-review-2.md` → `impl-review-3.md` …\n   - Phase-scoped series: `reviews/impl-review-phase-N.md` → `impl-review-phase-N-2.md` …\n   - The number in the file name is only a sequence number, not the review round.\n   - **Review round**: a review the user starts is round 1 and covers the Step 1 range, whatever its file number. Only a report written by the re-review sub-agent (Step 6 item 6) is round N ≥ 2. Rounds count within one chain of reports linked by `previous:`, and each user-started review begins a new chain at round 1.\n   - A round ≥ 2 report adds `- **Round**: N (previous: <previous report path>)` after the `- **Findings**:` header line, and its Scope reads `commit <sha> only (fixes from <previous report path>)`.\n"
+          "absent. Never overwrite an existing report.\n   - Full review series: `reviews/impl-review.md` → `impl-review-2.md` → `impl-review-3.md` …\n   - Phase-scoped series: `reviews/impl-review-phase-N.md` → `impl-review-phase-N-2.md` …\n   - **Review round**: counted over the whole change (Input resolution, „Round 4 never starts”). A review the user starts covers the Step 1 range; a re-review (Step 6 item 6) is the next round.\n   - A round ≥ 2 report adds `- **Round**: N (previous: <previous report path>)` after the `- **Findings**:` header line; a re-review's Scope reads `commit <sha> only (fixes from <previous report path>)`.\n"
         ],
         [
           "zachowaj",
@@ -2307,6 +2413,25 @@
         [
           "zachowaj",
           14502,
+          15240
+        ],
+        [
+          "zachowaj",
+          15307,
+          15887
+        ],
+        [
+          "zachowaj",
+          15964,
+          16698
+        ],
+        [
+          "dopisz",
+          "👁 OBSERVATION\n"
+        ],
+        [
+          "zachowaj",
+          16782,
           17090
         ],
         [
@@ -2348,48 +2473,39 @@
         ],
         [
           "dopisz",
-          "proceed — triage is automatic. Manual triage stays available through `/10x-impl-review <report-path>` (Step 7).\n\n## Step 5: Automatic triage\n\nTaskUpdate: activeForm \"Automatic triage\"\n\n### Triage sub-agent\n\nThis section and \"Recording the decisions\" are one text, the same in `10x-impl-review` and `10x-plan-review` (`scripts/check_refs.py` checks that they match). Where the two skills differ, the text names both variants:\n- the change under review: the code in `10x-impl-review`, the plan in `10x-plan-review`;\n- inputs: `plan-brief.md` exists only in `10x-plan-review`;\n- the diff: `10x-impl-review` takes the range of the review scope in round 1; `10x-plan-review` has a diff only in round ≥ 2, limited to the plan and `plan-brief.md`;\n- the looping mechanism: its files in `10x-impl-review`, its plan sections in `10x-plan-review`;\n- step names: \"the fix step\" is Step 6 in `10x-impl-review` and \"Plan fixes\" in `10x-plan-review`; \"manual triage\" is Step 7 and Step 8.\n\nLaunch **one** sub-agent (`subagent_type: \"general-purpose\"`). It works in a fresh context: it did not write the change under review (the code or the plan) or the report. Its prompt holds only the inputs and instructions below — no commentary of yours on any finding.\n\n**Inputs** (paths and one command):\n- the "
+          "proceed "
         ],
         [
           "zachowaj",
-          17231,
-          17237
+          17318,
+          17320
         ],
         [
           "dopisz",
-          "report;\n- `context/changes/<change-id>/change.md`, the plan, `plan-brief.md` if present (`10x-plan-review`), `context/foundation/lessons.md` (if present);\n- `${CLAUDE_SKILL_DIR}/references/triage-policy.md`;\n- the diff of the review scope: round 1 — the range of the review scope in `10x-impl-review`, none in `10x-plan-review` (the plan itself is the change under review); round ≥ 2 — `git diff <fix-sha>^..<fix-sha>`, in `10x-plan-review` followed by `-- <plan> <plan-brief>`;\n- the round number — from the report's `Round` header line, or 1 when it has none.\n\n**Instructions:**\n- Read only the inputs. Write nothing.\n- Apply the policy rules "
+          "triage is automatic. Manual triage stays available "
         ],
         [
           "zachowaj",
-          17237,
-          17240
+          17399,
+          17407
         ],
         [
           "zachowaj",
-          17407,
-          17420
+          17836,
+          17854
         ],
         [
           "dopisz",
-          "in the policy's order; the first matching rule decides. ⭐ is a hint, not a decision — choose between Fix A "
+          "<report-path>` (Step 7).\n\n"
         ],
         [
           "zachowaj",
-          17420,
-          17424
+          18097,
+          18108
         ],
         [
           "dopisz",
-          "Fix B as the policy says.\n- Round ≥ 2: judge E4 only against the `## Decyzje triage` entries of the earlier rounds of this chain (the reports linked by `previous:`), not against other series in `change.md`. E6 applies from round 3, using the round number given here.\n- E4: findings in the looping mechanism, regressions from the previous round's fixes, and any FIX whose edit would touch the looping mechanism (its files in code, its sections in a plan) get `AUTO-ESCALATE (E4)`; their reason names the triggering finding and points to the round's E4 approach question. The round has one E4 question for all of them, not one per finding. Other findings "
-        ],
-        [
-          "zachowaj",
-          17442,
-          17446
-        ],
-        [
-          "dopisz",
-          "decided normally. The options of the E4 question include „przestań łatać, zapisz ograniczenie” (`→ LIMIT`); in round 3 it is the only option that reviewer and author may settle without the human, and only when `Covers` holds no CRITICAL and no Impact HIGH finding.\n- E6: when round 3 still has a CRITICAL or WARNING finding to fix that E4 did not match, decide every finding that no earlier rule matched by the rules after E6 (its line keeps that category, e.g. `AUTO-FIX (N1)`, because it is fixed) and add the round's approach question with `(E6)`. It covers only those findings; findings that E4 matched keep their `AUTO-ESCALATE (E4)` lines and stay in the E4 block.\n- Merging: findings about the same place, e.g. a bug and the missing test right next to it, get one fix and one decision. The main finding carries the decision; each joined finding repeats its category, rule and option, and its reason starts with `razem z F<n>:` naming the main finding.\n- Write reasons in the language of `change.md`.\n- Return exactly one block per finding, then at most one approach question block per rule (an E4 block and an E6 block together only in round 3), nothing else:\n  ```\n  F<n>: AUTO-<FIX|LIMIT|ESCALATE> (<rule>): <reason in one sentence>\n    Option: <Fix | Fix A | Fix B>                          (FIX only)\n    Return when: <condition>                               (LIMIT only)\n    Options: A: <approach · strength · cost>; B: <…>        (ESCALATE only)\n    Recommendation: <option and why>                       (ESCALATE only)\n\n  Approach question (<E4|E6>): <the approach question in one sentence>\n    Covers: F<n>[, F<m>…]\n    Options: A: <approach · strength · cost>; B: <…>\n    Reviewer choice: <option> → <FIX|LIMIT>: <why>\n    Return when: <condition>                               (→ LIMIT only)\n    To human: <no | yes — round 3 | E6 | CRITICAL or HIGH | paid run or data sending | changes intent or criteria>\n  ```\n  `Return when` names the condition under which the limitation starts to matter, so that a later retrospective can recognise it in a change's traces: a file or directory a change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users). Under E4, `Covers` lists every finding of the round with an `AUTO-ESCALATE (E4)` line: findings in the looping mechanism, regressions and FIXes that touch it. Under E6, `Covers` lists the round's CRITICAL and WARNING findings to fix outside E4, and `Reviewer choice` says which approach you propose to the human. The options replace the looping mechanism; another patch of the same mechanism is not an option. `To human` is `no` for E4 in round 2 when no option changes the intent or the acceptance criteria and none needs a paid run or sending data, and for E4 in round 3 when `Reviewer choice` is `→ LIMIT`, in both rounds only when `Covers` holds no CRITICAL and no Impact HIGH finding; otherwise it is `yes` with its reason.\n\n### Recording the decisions\n\nCopy the sub-agent's decisions verbatim — do not re-judge them. The only corrections are the two nets below; apply them to the approach question blocks first, then record the corrected blocks once by the rules that follow:\n\n- **E6 net**: round 3 with an AUTO-FIX on a CRITICAL or WARNING finding outside E4 and no `Approach question (E6)` block means the sub-agent missed E6. Add the E6 question yourself — `Covers` those findings, options from their fix options, `Reviewer choice: —`, `To human: yes — E6`. An `Approach question (E4)` block of the round stays as it is, and the findings keep their decisions.\n- **Human gate net**: set `To human: yes — E6` on an E6 block, and `To human: yes — round 3` on an E4 block in round 3 whose `Reviewer choice` is not `→ LIMIT`, whatever the sub-agent wrote. Drop from the `Covers` of an E4 block every finding whose own line is not `AUTO-ESCALATE (E4)`; it keeps its own decision and is recorded like any other finding. Then set `To human: yes — CRITICAL or HIGH` on an E4 block whose `Covers` holds a finding with Severity CRITICAL or Impact HIGH in the report, whatever `Reviewer choice` says.\n\n- **Report**: each finding's `- **Decision**:` line becomes the first line of its block (`AUTO-<…> (<rule>): <reason>`).\n- **Where entries go in `change.md`:** each H2 below collects its own entries. Insert a new subsection or line directly above the first `## ` heading that follows that H2; only when no `## ` heading follows it, append at the end of the file. Example: the `### <report> (runda 2)` subsection goes directly above `## Wymaga Twojej decyzji` when that heading comes after `## Decyzje triage`. Create a missing H2 at the end of the file.\n- **`change.md` → `## Decyzje triage`**: a subsection `### <report path> (runda N)` with one line per finding — `- F<n> — <title> (<SEVERITY>, <IMPACT>, <location>): AUTO-<…> (<rule>): <reason>`. After the fix commit lands, append ` · commit <sha>` to the lines of fixed findings; a finding with a register entry gets ` · D-<nnn>`. Each approach question block adds one more line to its subsection, so round 3 may have two: `- Pytanie o podejście (<E4|E6>): <question> · Uwagi: <Covers> · Recenzent: <option> · Autor: <option, or „—” until the author has chosen, and for E6> · Rozstrzyga: <recenzent i autor | człowiek>`.\n- **LIMIT** → a limitation entry in the register, appended at the end of `context/foundation/limitations.md` (create the file with the heading `# Limitations` when it does not exist). Its number is one past the highest `D-<nnn>` among the headings of the three decision files, which share one numbering: `grep -hoE '^## D-[0-9]{3}' context/foundation/{decisions,limitations,decisions-archive}.md | sort | tail -1` (a missing file adds no numbers; the last heading of one file is not the highest number). Who closed the finding sets `Kto zdecydował`: `Kto zdecydował: model (<skill>)` for an AUTO-LIMIT decision, where `<skill>` is the skill running this triage; `Kto zdecydował: człowiek` for a limitation the human accepted; `Kto zdecydował: recenzent i autor (<skill>)` for a loop that reviewer and author closed with „przestań łatać, zapisz ograniczenie”. The entry:\n  ```markdown\n  ## D-<nnn> Ograniczenie: <finding title>\n  - Pytanie: czy naprawić teraz <the problem in one sentence>?\n  - Wybór: nie; ograniczenie zostaje. <the reason in one sentence>\n  - Kto zdecydował: <as above>\n  - Podstawa: <report> F<n>, reguła <rule> | <the human's words>\n  - Kiedy wrócić: <the condition>\n  - Źródło: <change-id> — `<report>` F<n>\n  - Status: obowiązuje\n  - Zmiana: <change-id>\n  ```\n  `Kiedy wrócić` comes from the `Return when:` line of the finding (or of its approach block). A limitation without that line gets no register entry: its findings are recorded as `AUTO-ESCALATE (poza polityką: brak warunku powrotu) (było: <decision>)` and go to `## Wymaga Twojej decyzji`. L4 adds `, poza polityką` to `Podstawa`. Then append ` · D-<nnn>` to the finding's line in `## Decyzje triage`.\n- **Limitation accepted by the human** in manual triage („accept risk”, or an approach question answered with „przestań łatać, zapisz ograniczenie”) → the same entry for each finding it closes, with `Kto zdecydował: człowiek` and the human's words in `Podstawa`. Propose the `Kiedy wrócić` condition in the confirmation; the human may correct it.\n- **Loop closed by reviewer and author** (round 2 or 3, both chose „przestań łatać, zapisz ograniczenie”; the fix step) → one entry per covered finding, with `Kto zdecydował: recenzent i autor (<skill>)`, `Podstawa: <report> F<n>, reguła E4 w rundzie <N>` and `Kiedy wrócić` from the approach block's `Return when:` line.\n- **L3** → also append an entry to `context/foundation/lessons.md` with the fields Context (the Location), Problem (the Detail), Rule (the gap as a rule for a future change) and Applies to. Create the file with this header first when it is missing:\n\n  ```\n  # Lessons Learned\n\n  > Register of recurring rules and patterns. New lessons are appended at the end; an existing lesson is revised in place when an approved fix extends it, and its previous version stays in git history. "
+          "Automatic triage\n\nTaskUpdate: activeForm \"Automatic triage\"\n\n### Triage sub-agent\n\nThis section and \"Recording the decisions\" are one text, the same in `10x-impl-review` and `10x-plan-review` (`scripts/check_refs.py` checks that they match). Where the two skills differ, the text names both variants:\n- the change under review: the code in `10x-impl-review`, the plan in `10x-plan-review`;\n- inputs: `plan-brief.md` exists only in `10x-plan-review`;\n- the diff: `10x-impl-review` takes the range of the review scope in a review the user starts; `10x-plan-review` has a diff only in a re-review, limited to the plan and `plan-brief.md`;\n- the looping fragment: its files in `10x-impl-review`, its plan sections in `10x-plan-review`;\n- step names: \"the fix step\" is Step 6 in `10x-impl-review` and \"Plan fixes\" in `10x-plan-review`; \"manual triage\" is Step 7 and Step 8.\n\n**The gates.** Before the launch, take `<fabryka>/CLAUDE.md` when the prompt of this run names `<fabryka>`, otherwise `CLAUDE.md` in the project root. When that file has no „Kiedy pytać człowieka” section (`grep -n 'Kiedy pytać człowieka' <file>`), run no triage: print `STOP: no „Kiedy pytać człowieka” section in <file>` and STOP; the report stays as saved, with every `Decision: PENDING`.\n\nLaunch **one** sub-agent (`subagent_type: \"general-purpose\"`). It works in a fresh context: it did not write the change under review (the code or the plan) or the report. Its prompt holds only the inputs and instructions below — no commentary of yours on any finding.\n\n**Inputs** (paths and one command):\n- the saved report;\n- `context/changes/<change-id>/change.md`, the plan, `plan-brief.md` if present (`10x-plan-review`), `context/foundation/lessons.md` (if present);\n- `${CLAUDE_SKILL_DIR}/references/triage-policy.md`;\n- the gates: the „Kiedy pytać człowieka” section of the `CLAUDE.md` above, and `docs/zgoda-czlowieka.md` next to it when it exists;\n- the diff of the review scope: a review the user starts — the range of the review scope in `10x-impl-review`, none in `10x-plan-review` (the plan itself is the change under review); a re-review — `git diff <fix-sha>^..<fix-sha>`, in `10x-plan-review` followed by `-- <plan> <plan-brief>`;\n- the round number — from the report's `Round` header line, or 1 when it has none.\n\n**Instructions:**\n- Read only the inputs. Write nothing.\n- Apply the policy rules to each finding in the policy's order (gate, loop, severity); the first matching rule decides. ⭐ is a hint, not a decision — choose between Fix A and Fix B as the policy says.\n- Loop, round ≥ 2: judge it only against the `## Decyzje triage` entries of the earlier reports of this series, not against other series in `change.md`, and only for CRITICAL and WARNING findings; an OBSERVATION finding in the looping fragment gets `AUTO-SKIP (OBSERVATION)`. The covered findings get `AUTO-FIX (zapętlenie)` when the fragment is rewritten and `AUTO-LIMIT (zapętlenie)` at a hard stop (the fragment was already rewritten in an earlier round and still has a finding to fix, or the loop falls in round 3). A hard stop whose disabling breaks an acceptance criterion gives the covered findings `AUTO-ESCALATE (bramka 1)` instead, and its loop block has `To human (bramka 1)` in place of `Hard stop`. Other findings are decided normally.\n- Merging: findings about the same place, e.g. a bug and the missing test right next to it, get one fix and one decision. The main finding carries the decision; each joined finding repeats its category, rule and option, and its reason starts with `razem z F<n>:` naming the main finding.\n- Write reasons in the language of `change.md`.\n- Return exactly one block per finding, then at most one loop block, nothing else:\n  ```\n  F<n>: AUTO-<FIX|LIMIT|ESCALATE|SKIP> (<rule>): <reason in one sentence>\n    Option: <Fix | Fix A | Fix B>                          (FIX only)\n    Return when: <condition>                               (LIMIT only)\n    Options: A: <approach · strength · cost>; B: <…>        (ESCALATE only)\n    Recommendation: <option and why>                       (ESCALATE only)\n\n  Loop (zapętlenie): <the looping fragment>\n    Covers: F<n>[, F<m>…]\n    Why it repeats: <one paragraph>\n    Rewrite: <the fragment to write anew, and how it gets simpler>   (rewrite only)\n    Hard stop: <the feature to disable or cut from scope>           (hard stop only)\n    To human (bramka 1): <the feature whose disabling breaks a criterion>   (hard stop that breaks a criterion only)\n  ```\n  `<rule>` is one of `bramka <n>`, `zapętlenie`, `CRITICAL`, `WARNING`, `WARNING, runda 3`, `OBSERVATION`. `Covers` lists every finding of the round with a `(zapętlenie)` line, and the findings a hard stop sends to the human as `AUTO-ESCALATE (bramka 1)`. `Return when` names the condition under which the limitation starts to matter, so that a later retrospective can recognise it in a change's traces: a file or directory a change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users).\n\n### Recording the decisions\n\nCopy the sub-agent's decisions verbatim — do not re-judge them.\n\n- **Report**: each finding's `- **Decision**:` line becomes the first line of its block (`AUTO-<…> (<rule>): <reason>`). An AUTO-SKIP finding gets only this line and its line in `## Decyzje triage`. A loop block adds a section `## Zapętlenie` at the end of the report: the fragment, `Covers`, and the paragraph „Dlaczego to się powtarza” from `Why it repeats`.\n- **Where entries go in `change.md`:** each H2 below collects its own entries. Insert a new subsection or line directly above the first `## ` heading that follows that H2; only when no `## ` heading follows it, append at the end of the file. Example: the `### <report> (runda 2)` subsection goes directly above `## Wymaga Twojej decyzji` when that heading comes after `## Decyzje triage`. Create a missing H2 at the end of the file.\n- **`change.md` → `## Decyzje triage`**: a subsection `### <report path> (runda N)` with one line per finding — `- F<n> — <title> (<SEVERITY>, <location>): AUTO-<…> (<rule>): <reason>`. After the fix commit lands, append ` · commit <sha>` to the lines of fixed findings; a finding with a register entry gets ` · D-<nnn>`. A loop block adds one more line to its subsection: `- Zapętlenie: <fragment> · Uwagi: <Covers> · <przepisanie | twarde zatrzymanie: <feature> | do człowieka (bramka 1): <feature>>`.\n- **LIMIT** → a limitation entry in the register, appended at the end of `context/foundation/limitations.md` (create the file with the heading `# Limitations` when it does not exist). Its number is one past the highest `D-<nnn>` among the headings of the three decision files, which share one numbering: `grep -hoE '^## D-[0-9]{3}' context/foundation/{decisions,limitations,decisions-archive}.md | sort | tail -1` (a missing file adds no numbers; the last heading of one file is not the highest number). Who closed the finding sets `Kto zdecydował`: `Kto zdecydował: model (<skill>)` for an AUTO-LIMIT decision, where `<skill>` is the skill running this triage; `Kto zdecydował: człowiek` for a limitation the human accepted. The entry:\n  ```markdown\n  ## D-<nnn> Ograniczenie: <finding title>\n  - Pytanie: czy naprawić teraz <the problem in one sentence>?\n  - Wybór: nie; ograniczenie zostaje. <the reason in one sentence>\n  - Kto zdecydował: <as above>\n  - Podstawa: <report> F<n>, reguła <rule> | <the human's words>\n  - Kiedy wrócić: <the condition>\n  - Źródło: <change-id> — `<report>` F<n>\n  - Status: obowiązuje\n  - Zmiana: <change-id>\n  ```\n  `Kiedy wrócić` comes from the `Return when:` line of the finding. A LIMIT without that line gets `Kiedy wrócić: zmiana dotyka <the file from the finding's Location>`; for a plan section, name the files that section changes. Then append ` · D-<nnn>` to the finding's line in `## Decyzje triage`.\n- **Limitation accepted by the human** in manual triage („accept risk”) → the same entry for each finding it closes, with `Kto zdecydował: człowiek` and the human's words in `Podstawa`. Propose the `Kiedy wrócić` condition in the confirmation; the human may correct it.\n- **Lekcja** → when the human in manual triage asks to record the gap as a recurring rule, also append an entry to `context/foundation/lessons.md` with the fields Context (the Location), Problem (the Detail), Rule (the gap as a rule for a future change) and Applies to. Create the file with this header first when it is missing:\n\n  ```\n  # Lessons Learned\n\n  > Register of recurring rules and patterns. New lessons are appended at the end; an existing lesson is revised in place when an approved fix extends it, and its previous version stays in git history. "
         ],
         [
           "wez",
@@ -2399,93 +2515,7 @@
         ],
         [
           "dopisz",
-          "```\n- **ESCALATE** → `## Wymaga Twojej decyzji` (create if absent): `- **<report> F<n> — <title>** · Reguła: <rule> · Opcje: <…> · Rekomendacja: <…>`. Findings covered by an approach question get no entry of their own. Merged findings get one entry with `(razem z F<m>)` in the title.\n- **Approach question** that goes to the human (`To human: yes`, or the author chose differently) → one entry for the round in `## Wymaga Twojej decyzji`: `- **<report> F<n> — pytanie o podejście: <mechanism>** · Reguła: <E4|E6> · Uwagi: <Covers> · Opcje: <…> · Rekomendacja: <reviewer choice> · Autor: <author choice, or „—”>`, where `F<n>` is the first covered finding. The human gets at most one question per round: in round 3, when both the E4 block and the E6 question go to the human, they are one entry — the E6 entry, with the E4 block's `Covers` added to `Uwagi` and its options after the E6 options.\n\n## Step 6: Apply fixes and re-review\n\nTaskUpdate: activeForm \"Applying AUTO fixes\"\n\n1. **Dirty tree?** If the start condition (Step 4, \"Saving the report\" item 0) was not clean: rewrite every AUTO-FIX of this round to `AUTO-ESCALATE (poza polityką: brudne drzewo) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, add one `## Wymaga Twojej decyzji` entry with the `git status --porcelain` output, apply nothing, commit only the report, print the closing message (item 7) and STOP.\n2. **Approach question and stop** (policy, „Pytanie o podejście”), with the blocks as corrected and recorded in \"Recording the decisions\". Settle the E4 block first, then the E6 question:\n   - E4 with `To human: no` (round 2, or round 3 with `Reviewer choice` `→ LIMIT`): launch **one** fresh sub-agent, the author (`subagent_type: \"general-purpose\"`), with the report, `change.md`, the plan, `lessons.md` (if present), the policy, the diff of the review scope, and the approach question with its options but without the reviewer's choice. Instructions: choose one option, give the reason in one sentence, write nothing. Put its choice into the `Pytanie o podejście` line of `## Decyzje triage`.\n     - Same option as the reviewer, `→ FIX` (round 2 only): `Rozstrzyga: recenzent i autor`. The approach is the fix of the covered findings and goes with the other AUTO-FIX decisions through items 3–6; append ` · podejście <option>: recenzent i autor` to the covered findings' `Decision` lines in the report and their lines in `## Decyzje triage`.\n     - Same option as the reviewer, `→ LIMIT` (round 2 or 3): `Rozstrzyga: recenzent i autor`. Rewrite each covered finding's decision to `AUTO-LIMIT (E4, runda <N>): <reason> · podejście <option>: recenzent i autor` in the report and `## Decyzje triage`, and write their register entries (\"Recording the decisions\", loop closed by reviewer and author). Nothing is patched, and this is not an applied approach for the re-review in item 6.\n     - Different option: `Rozstrzyga: człowiek`. The question goes to the human with both choices: in round 3 with an E6 question, the covered findings join the E6 entry in `## Wymaga Twojej decyzji` (\"Recording the decisions\"); otherwise add the approach question entry. Leave the covered findings untouched.\n   - E4 with `To human: yes`: leave the covered findings untouched; in round 3 with an E6 question the block is part of the E6 entry.\n   - E6 in the round: apply and verify the AUTO-FIX decisions outside the `Covers` of an E4 block that waits for the human (items 3–5), then print the closing message (item 7) and STOP. There is no re-review.\n   - No E6, and an E4 block waits for the human: apply the AUTO-FIX decisions outside its `Covers` (items 3–5), then print the closing message and STOP without a re-review.\n3. **Apply** every remaining AUTO-FIX with minimal targeted edits, using the chosen option, and the approach that reviewer and author agreed on (item 2). Leave the other ESCALATE findings untouched. Never write to the plan's `## Progress`; the only plan edit allowed is appending to `## Plan Changes` (item 5).\n4. **Verify**: run the Automated Verification commands of the reviewed phases. A command blocks only if it passed before this round's fixes (Step 3 in round 1, item 4 of the previous round in round ≥ 2) and fails now; a command that already failed is a finding, not a blocker. If any command blocks:\n   - undo this round's fixes: `git restore` the files the fixes edited and delete the files they created (the tree was clean before them);\n   - rewrite every AUTO-FIX decision of this round to `AUTO-ESCALATE (poza polityką: <command>) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, so manual triage queues them;\n   - when the round applied an approach that reviewer and author agreed on: set `Rozstrzyga: człowiek` in its `Pytanie o podejście` line, remove the ` · podejście <option>: recenzent i autor` stamp from the covered findings in the report and `## Decyzje triage`, and add the approach question entry to `## Wymaga Twojej decyzji`;\n   - add a `## Wymaga Twojej decyzji` entry „poza polityką” with the command and a short output summary;\n   - commit the documents only, print the closing message and STOP.\n5. **Commit**, staging only named files (never `git add -A`, never `--no-verify`). Every commit of the triage documents that takes `lessons.md` — „the documents” here and in item 4, or a path list with `[lessons.md]` — also takes `context/foundation/limitations.md` when it changed; the commit of only the report in item 1 takes neither.\n   - plan scope first: with the fix files staged, run `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_change.py <change-id> --rules 6 --staged --phases <reviewed phases>` (no `--phases` for a review of all phases). Each reported file gets a `PC<n>` entry in the plan's `## Plan Changes` (format in `references/progress-format.md`) naming the phase whose code the fix touches, or the last reviewed phase for a fix across phases; stage `plan.md` with the fixes and re-run; after 2 attempts that still report files, do not commit the fixes and do not undo them: they stay in the tree, staged, for the human. Rewrite every AUTO-FIX decision of this round to `AUTO-ESCALATE (poza polityką: validate_change.py --rules 6) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, hand an agreed approach "
-        ],
-        [
-          "zachowaj",
-          17454,
-          17466
-        ],
-        [
-          "dopisz",
-          "human as in item 4, add a `## Wymaga Twojej decyzji` entry with the script's output and the fix files left in the tree, stage the documents and commit them by explicit path — `git commit -m \"docs(<change-id>): AUTO triage of <report>\" -- <report> <change.md> [lessons.md] [limitations.md]`, which leaves the staged fixes out — then print the closing message and STOP;\n   "
-        ],
-        [
-          "zachowaj",
-          17483,
-          17485
-        ],
-        [
-          "dopisz",
-          "fixes: the files the fixes edited (and `plan.md` when it got an entry) — `fix(<change-id>): AUTO triage fixes from <report>`; then add the SHA to `## Decyzje triage`;\n   - documents: the report, `change.md` and `lessons.md` if it changed — `docs(<change-id>): AUTO triage of <report>`.\n6. **Re-review** when at least one CRITICAL or WARNING finding was fixed, or an approach agreed by reviewer and author was applied (`→ FIX`; an agreed `→ LIMIT` patches nothing), and this round is below 3 — never start round 4. Launch **one** fresh sub-agent (`subagent_type: \"general-purpose\"`) with: the plan path, the fix commit SHA, the previous report path, the round number N + 1, the next report path of the series, and `${CLAUDE_SKILL_DIR}/SKILL.md`. Instructions:\n   - follow Steps 1–4 of that SKILL.md for `git diff <fix-sha>^..<fix-sha>` only, without the Step 1 precondition (it ran in round 1, and item 5 checked the fix files);\n   - skip Step 1 item 6 and the plan↔diff file comparison: judge only the hunks of this commit, reading the plan and the surrounding code as context; a planned file missing from this commit is not a finding;\n   - do the drift and safety checks yourself instead of launching sub-agents (this replaces Step 2's two agents);\n   - in a finding's Detail, say when it is a regression caused by a fix from the previous report, or a new form of a problem that report already raised, and name that earlier finding;\n   - write the report in the standard format "
-        ],
-        [
-          "zachowaj",
-          17532,
-          17537
-        ],
-        [
-          "zachowaj",
-          17633,
-          17637
-        ],
-        [
-          "dopisz",
-          "`Round` header line and every `Decision: PENDING`; skip \"Stamp `change.md`\" in Step 4; do not triage, do not edit any other file, do not commit.\n\n   Then refresh `updated` in `change.md` and go back "
-        ],
-        [
-          "zachowaj",
-          17715,
-          17723
-        ],
-        [
-          "dopisz",
-          "5 for "
-        ],
-        [
-          "zachowaj",
-          17726,
-          17730
-        ],
-        [
-          "dopisz",
-          "new "
-        ],
-        [
-          "zachowaj",
-          17736,
-          17743
-        ],
-        [
-          "dopisz",
-          "(round N + 1). The loop ends when a round fixes no CRITICAL or WARNING finding, when item 1 or 2 stops it, or after round 3.\n7. **Closing message**:\n   ```\n   ═══════════════════════════════════════════════════════════\n     AUTO TRIAGE COMPLETE  |  or: AUTO TRIAGE STOPPED — waiting for you\n   ═══════════════════════════════════════════════════════════\n     Rounds:    [N] — [report paths]\n     Fixed:     [F-ids per report]   Limit: [...]   Escalated: [...]\n     Waiting for you: [approach questions first, then "
-        ],
-        [
-          "zachowaj",
-          17746,
-          17750
-        ],
-        [
-          "dopisz",
-          "other entries of ## Wymaga Twojej decyzji, or \"nothing\"]\n     Approach:  [per round: question · settled by reviewer and author | waiting for you, or \"none\"]\n     Manual triage: /10x-impl-review <last report path>\n   ═══════════════════════════════════════════════════════════\n   ```\n   `change.md` keeps `status: impl_reviewed`. Mark "
-        ],
-        [
-          "zachowaj",
-          17791,
-          17795
-        ],
-        [
-          "dopisz",
-          "review task completed.\n\n"
-        ],
-        [
-          "zachowaj",
-          18097,
-          18105
-        ],
-        [
-          "dopisz",
-          "7: Manual "
+          "```\n- **ESCALATE** → `## Wymaga Twojej decyzji` (create if absent): `- **<report> F<n> — <title>** · Reguła: <rule> · Opcje: <…> · Rekomendacja: <…>`. Merged findings get one entry with `(razem z F<m>)` in the title.\n\n## Step 6: Apply fixes and re-review\n\nTaskUpdate: activeForm \"Applying AUTO fixes\"\n\n1. **Dirty tree?** If the start condition (Step 4, \"Saving the report\" item 0) was not clean: rewrite every AUTO-FIX of this round to `AUTO-ESCALATE (poza polityką: brudne drzewo) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, add one `## Wymaga Twojej decyzji` entry with the `git status --porcelain` output, apply nothing, commit only the report, print the closing message (item 7) and STOP.\n2. **Loop** (policy, „Zapętlenie”), from the loop block recorded in \"Recording the decisions\":\n   - rewrite (`AUTO-FIX (zapętlenie)`): the restore point is the oldest commit with ` · commit <sha>` in the `## Decyzje triage` lines of the `Covers` findings and of their earlier findings of this mechanism. Take the fragment from `git show <sha>^:<file>` and replace only that fragment; the fixes of other findings in the same files stay, and the whole file goes back only when that commit changed it solely for findings covered by the loop. Then write the fragment anew, simpler, without the cause from `Why it repeats`. The rewrite goes with the other AUTO-FIX decisions through items 3–6.\n   - hard stop (`AUTO-LIMIT (zapętlenie)`): disable the feature from `Hard stop` in the code, and disable or skip its tests, through items 3–5 like an AUTO-FIX; write the register entries of the covered findings (\"Recording the decisions\", LIMIT) only after the fix commit lands (item 5). There is no further patch of the fragment.\n   - to the human (`AUTO-ESCALATE (bramka 1)`, the block has `To human (bramka 1)`): disable nothing and leave the fragment untouched; the covered findings wait in `## Wymaga Twojej decyzji` as merged findings.\n3. **Apply** every AUTO-FIX with minimal targeted edits, using the chosen option, and the rewrite or hard stop of item 2. Leave the ESCALATE findings untouched. Never write to the plan's `## Progress`; the only plan edit allowed is appending to `## Plan Changes` (item 5).\n4. **Verify**: run the tests of the files this round's fixes changed; when no re-review follows (item 6), run the Automated Verification commands of the reviewed phases instead, the one full run before the review ends. A command blocks only if it passed before this round's fixes (Step 3, or an earlier round's item 4) and fails now; a command that already failed is a finding, not a blocker. If any command blocks:\n   - undo this round's fixes: `git restore` the files the fixes edited and delete the files they created (the tree was clean before them);\n   - rewrite every AUTO-FIX and `AUTO-LIMIT (zapętlenie)` decision of this round to `AUTO-ESCALATE (poza polityką: <command>) (było: AUTO-<FIX|LIMIT> (<rule>): <reason>)` in the report and `## Decyzje triage`, so manual triage queues them;\n   - add a `## Wymaga Twojej decyzji` entry „poza polityką” with the command and a short output summary;\n   - commit the documents only, print the closing message and STOP.\n5. **Commit**, staging only named files (never `git add -A`, never `--no-verify`). Every commit of the triage documents that takes `lessons.md` — „the documents” here and in item 4, or a path list with `[lessons.md]` — also takes `context/foundation/limitations.md` when it changed; the commit of only the report in item 1 takes neither.\n   - plan scope first: with the fix files staged, run `python3 ${CLAUDE_SKILL_DIR}/scripts/validate_change.py <change-id> --rules 6 --staged --phases <reviewed phases>` (no `--phases` for a review of all phases). Each reported file gets a `PC<n>` entry in the plan's `## Plan Changes` (format in `references/progress-format.md`) naming the phase whose code the fix touches, or the last reviewed phase for a fix across phases; stage `plan.md` with the fixes and re-run; after 2 attempts that still report files, do not commit the fixes and do not undo them: they stay in the tree, staged, for the human. Rewrite every AUTO-FIX and `AUTO-LIMIT (zapętlenie)` decision of this round to `AUTO-ESCALATE (poza polityką: validate_change.py --rules 6) (było: AUTO-<FIX|LIMIT> (<rule>): <reason>)` in the report and `## Decyzje triage`, add a `## Wymaga Twojej decyzji` entry with the script's output and the fix files left in the tree, stage the documents and commit them by explicit path — `git commit -m \"docs(<change-id>): AUTO triage of <report>\" -- <report> <change.md> [lessons.md] [limitations.md]`, which leaves the staged fixes out — then print the closing message and STOP;\n   - fixes: the files the fixes edited (and `plan.md` when it got an entry) — `fix(<change-id>): AUTO triage fixes from <report>`; then add the SHA to `## Decyzje triage`;\n   - documents: the report, `change.md` and `lessons.md` if it changed — `docs(<change-id>): AUTO triage of <report>`.\n6. **Re-review** when at least one CRITICAL or WARNING finding was fixed or a fragment was rewritten (item 2), and this round is below 3 — never start round 4. Launch **one** fresh sub-agent (`subagent_type: \"general-purpose\"`) with: the plan path, the fix commit SHA, the previous report path, the round number N + 1, the next report path of the series, and `${CLAUDE_SKILL_DIR}/SKILL.md`. Instructions:\n   - follow Steps 1–4 of that SKILL.md for `git diff <fix-sha>^..<fix-sha>` only, without the Step 1 precondition (it ran when the review started, and item 5 checked the fix files);\n   - skip Step 1 item 6 and the plan↔diff file comparison: judge only the hunks of this commit, reading the plan and the surrounding code as context; a planned file missing from this commit is not a finding;\n   - do the drift and safety checks yourself instead of launching sub-agents (this replaces Step 2's two agents);\n   - in a finding's Detail, say when it is a regression caused by a fix from the previous report, or a new form of a problem that report already raised, and name that earlier finding;\n   - write the report in the standard format with the `Round` header line and every `Decision: PENDING`; skip \"Stamp `change.md`\" in Step 4; do not triage, do not edit any other file, do not commit.\n\n   Then refresh `updated` in `change.md` and go back to Step 5 for the new report (round N + 1). The loop ends when a round fixes no CRITICAL or WARNING finding, when an item above stops it, or after round 3.\n7. **Closing message**:\n   ```\n   ═══════════════════════════════════════════════════════════\n     AUTO TRIAGE COMPLETE  |  or: AUTO TRIAGE STOPPED — waiting for you\n   ═══════════════════════════════════════════════════════════\n     Rounds:    [N] — [report paths]\n     Fixed:     [F-ids per report]   Limit: [...]   Escalated: [...]\n     Waiting for you: [the entries of ## Wymaga Twojej decyzji, or \"nothing\"]\n     Manual triage: /10x-impl-review <last report path>\n   ═══════════════════════════════════════════════════════════\n   ```\n   `change.md` keeps `status: impl_reviewed`. Mark the review task completed.\n\n## Step 7: Manual "
         ],
         [
           "zachowaj",
@@ -2503,7 +2533,7 @@
         ],
         [
           "dopisz",
-          "headers. The queue holds findings with `Decision: PENDING` or `AUTO-ESCALATE`, except covered findings whose approach reviewer and author already agreed on (`Rozstrzyga: recenzent i autor`). Findings covered by one approach question that waits for you form one queue item: ask the question once, with its options and the reviewer's and author's choices; the answer decides every covered finding, and each gets the same `Decision`. After them, ask once (AskUserQuestion) whether "
+          "headers. The queue holds findings with `Decision: PENDING` or `AUTO-ESCALATE`. After them, ask once (AskUserQuestion) whether "
         ],
         [
           "zachowaj",
@@ -2535,15 +2565,33 @@
         [
           "zachowaj",
           18393,
-          19837
+          18482
         ],
         [
           "dopisz",
-          "**A decision that changes the change's scope** (Apply Fix, Fix differently or Other, when the decision changes what the change does or does not do, or which files it changes): before the confirmation, read every acceptance criterion and „Decyzje z góry” in `change.md`, the exclusive ones first („tylko”, „nie zmienia”, „only”, „does not change”) and those that name a file the decision changes. Each criterion the decision no longer meets gets a new wording. Show the new wording next to the before/after of the change, in the same confirmation question („Apply this?”); on approval, the `change.md` edit goes in the same commit as the fix. When no criterion needs a new wording, the question says so in one sentence. Without this check a criterion lags behind the human's decision and the verifier stops the archive (etap-8b E11, D-088).\n- **Before a manual-triage fix is committed**: the same plan scope check as Step 6 item 5 — `--rules 6 --staged` (with `--phases` as there), a `PC<n>` entry in `## Plan Changes` for each reported file, the same 2-attempt budget — so a fix in a file outside the plan does not block `/10x-archive` (rule 6).\n- "
+          "[SEV]\\nDimension: "
         ],
         [
           "zachowaj",
-          19837,
+          18543,
+          19064
+        ],
+        [
+          "dopisz",
+          "[SEV]\\nDimension: "
+        ],
+        [
+          "zachowaj",
+          19125,
+          19835
+        ],
+        [
+          "dopisz",
+          "- **A decision that changes the change's scope** (Apply Fix, Fix differently or Other, when the decision changes what the change does or does not do, or which files it changes): before the confirmation, read every acceptance criterion and „Decyzje z góry” in `change.md`, the exclusive ones first („tylko”, „nie zmienia”, „only”, „does not change”) and those that name a file the decision changes. Each criterion the decision no longer meets gets a new wording. Show the new wording next to the before/after of the change, in the same confirmation question („Apply this?”); on approval, the `change.md` edit goes in the same commit as the fix. When no criterion needs a new wording, the question says so in one sentence. Without this check a criterion lags behind the human's decision and the verifier stops the archive (etap-8b E11, D-088).\n- **Before a manual-triage fix is committed**: the same plan scope check as Step 6 item 5 — `--rules 6 --staged` (with `--phases` as there), a `PC<n>` entry in `## Plan Changes` for each reported file, the same 2-attempt budget — so a fix in a file outside the plan does not block `/10x-archive` (rule 6).\n"
+        ],
+        [
+          "zachowaj",
+          19835,
           20499
         ],
         [
@@ -2571,20 +2619,11 @@
         [
           "zachowaj",
           21691,
-          21719
-        ],
-        [
-          "dopisz",
-          "DISMISSED.\n- **Approach question answered with „przestań łatać, zapisz ograniczenie”**: mark each covered finding ACCEPTED and write their limitation entries the same way.\n\n"
-        ],
-        [
-          "zachowaj",
-          21731,
           21863
         ],
         [
           "dopisz",
-          "**Overriding AUTO decisions:**\n- When the user's decision differs from the finding's AUTO decision, write the new decision followed by `(było: AUTO-<…> (<rule>))`.\n- If the AUTO-FIX was already applied, name its commit from `## Decyzje triage`; undoing it is handled like \"Fix differently\".\n- Remove resolved entries from `## Wymaga Twojej decyzji` in `change.md`; an answered approach question removes its one entry and sets `Rozstrzyga: człowiek` in its `Pytanie o podejście` line.\n- At the end of the session, if any decision differed from AUTO or resolved an AUTO-ESCALATE, append one entry to `## Interwencje` in `change.md` (create the H2 if absent), numbered after the last `I-N`:\n  ```\n  - **I-N (<change-id>, manual triage of <report>):** <which findings changed, from what to what>.\n    - **Dlaczego:** <the user's reason, or \"nie podano\">.\n    - **Bez interwencji fabryka:** <the AUTO decisions that would have stood>.\n    - **Możliwa reguła:** <a policy rule that would remove the need, or \"do ustalenia w retrospektywie\">.\n  ```\n\n"
+          "**Overriding AUTO decisions:**\n- When the user's decision differs from the finding's AUTO decision, write the new decision followed by `(było: AUTO-<…> (<rule>))`.\n- If the AUTO-FIX was already applied, name its commit from `## Decyzje triage`; undoing it is handled like \"Fix differently\".\n- Remove resolved entries from `## Wymaga Twojej decyzji` in `change.md`.\n- At the end of the session, if any decision differed from AUTO or resolved an AUTO-ESCALATE, append one entry to `## Interwencje` in `change.md` (create the H2 if absent), numbered after the last `I-N`:\n  ```\n  - **I-N (<change-id>, manual triage of <report>):** <which findings changed, from what to what>.\n    - **Dlaczego:** <the user's reason, or \"nie podano\">.\n    - **Bez interwencji fabryka:** <the AUTO decisions that would have stood>.\n    - **Możliwa reguła:** <a policy rule that would remove the need, or \"do ustalenia w retrospektywie\">.\n  ```\n\n"
         ],
         [
           "zachowaj",
@@ -2616,12 +2655,17 @@
         [
           "zachowaj",
           22501,
+          22946
+        ],
+        [
+          "zachowaj",
+          23111,
           23516
         ]
       ],
       "oryginal": "skills/10x-impl-review/SKILL.md",
       "sha256_oryginalu": "35f411842641123a9a9bcab3928794d259ae9451595b78783169af82a35317c6",
-      "sha256_wyniku": "38858b72bdbe0a65800f048466e072c01343d07da7f11b2f7fd85c3e00e7114a"
+      "sha256_wyniku": "b0d0a96ad9512c3432d3a4193002e27615db07264a3a365b5015a25e7d384048"
     },
     "skills/10x-impl-review/references/progress-format.md": {
       "operacje": [
@@ -3542,7 +3586,7 @@
         ],
         [
           "dopisz",
-          "walk its findings with the user (also overrides AUTO decisions)\n\n## What I read („Co czytam”)\n\n- **Always:** the plan, sibling `plan-brief.md` (if present), sibling `change.md` (including its acceptance criteria block), `context/foundation/lessons.md`, `references/progress-format.md` for the Progress and criteria checks, the output of `validate_change.py --rules 4` (Step 1).\n- **Only when needed:** the saved report (manual triage); the report of the current round, when recording AUTO decisions (Step 7); `docs/reference/contract-surfaces.md` when it exists; `references/triage-policy.md` — read only by the triage sub-agent (Step 7); the previous round's report — read only by the re-review sub-agent (Step 7); `context/foundation/limitations.md` — only "
+          "walk its findings with the user (also overrides AUTO decisions)\n\n## What I read („Co czytam”)\n\n- **Always:** the plan, sibling `plan-brief.md` (if present), sibling `change.md` (including its acceptance criteria block), `context/foundation/lessons.md`, `references/progress-format.md` for the Progress and criteria checks, the output of `validate_change.py --rules 4` (Step 1).\n- **Only when needed:** the saved report (manual triage); the report of the current round, when recording AUTO decisions (Step 7); `docs/reference/contract-surfaces.md` when it exists; `references/triage-policy.md` and the „Kiedy pytać człowieka” section of the factory's `CLAUDE.md` — read only by the triage sub-agent (Step 7; the session only checks that the section exists, \"Triage sub-agent\"); the previous round's report — read only by the re-review sub-agent (Step 7); `context/foundation/limitations.md` — only "
         ],
         [
           "zachowaj",
@@ -3574,6 +3618,15 @@
         [
           "zachowaj",
           954,
+          1458
+        ],
+        [
+          "dopisz",
+          "**Round 4 never starts.** The review round counts over the whole change: the number of reports of the full series already in `context/changes/<change-id>/reviews/` (`plan-review.md`, `plan-review-<n>.md`) plus one, for a review the user starts too. When it would be 4, review nothing, write no report, print `Round 4 never starts: the limit of three rounds is reached.` and STOP; round 3 has already decided every finding.\n\n"
+        ],
+        [
+          "zachowaj",
+          1458,
           3852
         ],
         [
@@ -3592,6 +3645,15 @@
         [
           "zachowaj",
           4801,
+          7310
+        ],
+        [
+          "dopisz",
+          "resource and cost use "
+        ],
+        [
+          "zachowaj",
+          7331,
           7510
         ],
         [
@@ -3601,6 +3663,47 @@
         [
           "zachowaj",
           7523,
+          7841
+        ],
+        [
+          "dopisz",
+          "OBSERVATION, by these definitions:\n  "
+        ],
+        [
+          "zachowaj",
+          7874,
+          7876
+        ],
+        [
+          "dopisz",
+          "`CRITICAL` — łamie kryterium akceptacji, test nie przechodzi, gubi dane albo jest dziurą w zabezpieczeniu w ramach modelu zagrożenia zmiany.\n  - `WARNING` — prawdziwy błąd w sytuacji, która zdarza się przy zwykłej pracy, bez złamanego kryterium.\n  - `OBSERVATION` — styl, nazwy, opis, przypadek hipotetyczny.\n"
+        ],
+        [
+          "zachowaj",
+          7944,
+          8262
+        ],
+        [
+          "zachowaj",
+          8758,
+          9255
+        ],
+        [
+          "dopisz",
+          "**OBSERVATION "
+        ],
+        [
+          "zachowaj",
+          9268,
+          9378
+        ],
+        [
+          "dopisz",
+          "**CRITICAL and WARNING "
+        ],
+        [
+          "zachowaj",
+          9399,
           10183
         ],
         [
@@ -3615,6 +3718,40 @@
         [
           "zachowaj",
           10206,
+          11163
+        ],
+        [
+          "zachowaj",
+          11241,
+          12554
+        ],
+        [
+          "zachowaj",
+          12622,
+          13494
+        ],
+        [
+          "zachowaj",
+          13568,
+          13830
+        ],
+        [
+          "dopisz",
+          "updates.\n      Strength:   Removes the guesswork; the implementer edits only the named\n                  call sites.\n      Tradeoff:   Listing 12 callers lengthens the phase.\n      Confidence: HIGH — grep shows the 12 importers.\n      Blind spot: Callers added after the review are not listed.\n\n"
+        ],
+        [
+          "zachowaj",
+          13840,
+          14322
+        ],
+        [
+          "zachowaj",
+          14678,
+          14688
+        ],
+        [
+          "zachowaj",
+          14696,
           14845
         ],
         [
@@ -3624,7 +3761,7 @@
         ],
         [
           "dopisz",
-          "report (always)\n\n**Start condition** (round 1, before writing anything): if any file in `context/changes/<change-id>/` is untracked or modified, or a dirty file in `context/foundation/` holds this change's entries, commit first — the change folder plus each such `context/foundation/` file, added by name and named again in the commit, `git commit -m \"docs(<change-id>): stan przed review\" -- <change folder> <those files>`, so nothing else already staged goes in (never `git add -A`, never `--no-verify`). A `context/foundation/` file holds this change's entries when its added and removed lines (`git diff -U0 HEAD -- <file>`, so changes already staged count too; lines starting with `+` or `-`, without the `+++`/`---` headers; for an untracked file, its whole content) contain a line `Zmiana: <change-id>` and no `Zmiana:` line with another value. Context lines of the diff do not count: every entry of `decisions.md` and `limitations.md` ends with `- Zmiana: <id>`, so appending a new entry always shows the previous change's line as context. Then run `git status --porcelain` and keep the result; other dirty files escalate in \"Plan fixes\". \"Plan fixes\" item 1 uses it. Rounds ≥ 2 start after the previous round's commits, so they skip this.\n\n"
+          "report (always)\n\n**Start condition** (a review the user starts, before writing anything): if any file in `context/changes/<change-id>/` is untracked or modified, commit the change folder first, added by name and named again in the commit, `git commit -m \"docs(<change-id>): stan przed review\" -- <change folder>`, so nothing else already staged goes in (never `git add -A`, never `--no-verify`). Then run `git status --porcelain` and keep the result; other dirty files escalate in \"Plan fixes\". \"Plan fixes\" item 1 uses it. A re-review starts after the previous round's commits, so it skips this.\n\n"
         ],
         [
           "zachowaj",
@@ -3651,11 +3788,39 @@
         ],
         [
           "dopisz",
-          "→ `plan-review-2.md` → `plan-review-3.md` … Never overwrite an existing report. The number in the file name is only a sequence number, not the review round. A review the user starts is round 1, whatever its file number. Only a report written by the re-review sub-agent (Step 7, \"Plan fixes\" item 6) is round N ≥ 2. Rounds count within one chain of reports linked by `previous:`, and each user-started review begins a new chain at round 1. A round ≥ 2 report adds `- **Round**: N (previous: <previous report path>)` after the `- **Findings**:` header line, and its Mode reads `Deep — fixes in commit <sha> only`. "
+          "→ `plan-review-2.md` → `plan-review-3.md` … Never overwrite an existing report. The review round counts over the whole "
+        ],
+        [
+          "zachowaj",
+          15411,
+          15418
+        ],
+        [
+          "dopisz",
+          "(Input resolution, „Round 4 never starts”); a re-review (Step 7, \"Plan fixes\" item 6) is the next round. A round ≥ 2 report adds `- **Round**: N (previous: <previous report path>)` after the `- **Findings**:` header line, and a re-review's Mode reads `Deep — fixes in commit <sha> only`. "
         ],
         [
           "zachowaj",
           15449,
+          16142
+        ],
+        [
+          "zachowaj",
+          16219,
+          17120
+        ],
+        [
+          "zachowaj",
+          17193,
+          17408
+        ],
+        [
+          "dopisz",
+          "updates.\n  - Strength: Removes the guesswork; only the named call sites change.\n  - Tradeoff: Listing 12 callers lengthens the phase.\n  - Confidence: HIGH — grep shows the 12 importers.\n  - Blind spot: Callers added after the review are not listed.\n"
+        ],
+        [
+          "zachowaj",
+          17417,
           17525
         ],
         [
@@ -3687,7 +3852,7 @@
         ],
         [
           "dopisz",
-          "Automatic triage, plan fixes and re-review\n\n### Triage sub-agent\n\nThis section and \"Recording the decisions\" are one text, the same in `10x-impl-review` and `10x-plan-review` (`scripts/check_refs.py` checks that they match). Where the two skills differ, the text names both variants:\n- the change under review: the code in `10x-impl-review`, the plan in `10x-plan-review`;\n- inputs: `plan-brief.md` exists only in `10x-plan-review`;\n- the diff: `10x-impl-review` takes the range of the review scope in round 1; `10x-plan-review` has a diff only in round ≥ 2, limited to the plan and `plan-brief.md`;\n- the looping mechanism: its files in `10x-impl-review`, its plan sections in `10x-plan-review`;\n- step names: \"the fix step\" is Step 6 in `10x-impl-review` and \"Plan fixes\" in `10x-plan-review`; \"manual triage\" is Step 7 and Step 8.\n\nLaunch **one** sub-agent (`subagent_type: \"general-purpose\"`). It works in a fresh context: it did not write the change under review (the code or the plan) or the report. Its prompt holds only the inputs and instructions below — no commentary of yours on any finding.\n\n**Inputs** (paths and one command):\n- the saved report;\n- `context/changes/<change-id>/change.md`, the plan, `plan-brief.md` if present (`10x-plan-review`), `context/foundation/lessons.md` (if present);\n- `${CLAUDE_SKILL_DIR}/references/triage-policy.md`;\n- the diff of the review scope: round 1 — the range of the review scope in `10x-impl-review`, none in `10x-plan-review` (the plan itself is the change under review); round ≥ 2 — `git diff <fix-sha>^..<fix-sha>`, in `10x-plan-review` followed by `-- <plan> <plan-brief>`;\n- the round number — from the report's `Round` header line, or 1 when it has none.\n\n**Instructions:**\n- Read only the inputs. Write nothing.\n- Apply the policy rules to each finding in the policy's order; the first matching rule decides. ⭐ is a hint, not a decision — choose between Fix A and Fix B as the policy says.\n- Round ≥ 2: judge E4 only against the `## Decyzje triage` entries of the earlier rounds of this chain (the reports linked by `previous:`), not against other series in `change.md`. E6 applies from round 3, using the round number given here.\n- E4: findings in the looping mechanism, regressions from the previous round's fixes, and any FIX whose edit would touch the looping mechanism (its files in code, its sections in a plan) get `AUTO-ESCALATE (E4)`; their reason names the triggering finding and points to the round's E4 approach question. The round has one E4 question for all of them, not one per finding. Other findings are decided normally. The options of the E4 question include „przestań łatać, zapisz ograniczenie” (`→ LIMIT`); in round 3 it is the only option that reviewer and author may settle without the human, and only when `Covers` holds no CRITICAL and no Impact HIGH finding.\n- E6: when round 3 still has a CRITICAL or WARNING finding to fix that E4 did not match, decide every finding that no earlier rule matched by the rules after E6 (its line keeps that category, e.g. `AUTO-FIX (N1)`, because it is fixed) and add the round's approach question with `(E6)`. It covers only those findings; findings that E4 matched keep their `AUTO-ESCALATE (E4)` lines and stay in the E4 block.\n- Merging: findings about the same place, e.g. a bug and the missing test right next to it, get one fix and one decision. The main finding carries the decision; each joined finding repeats its category, rule and option, and its reason starts with `razem z F<n>:` naming the main finding.\n- Write reasons in the language of `change.md`.\n- Return exactly one block per finding, then at most one approach question block per rule (an E4 block and an E6 block together only in round 3), nothing else:\n  ```\n  F<n>: AUTO-<FIX|LIMIT|ESCALATE> (<rule>): <reason in one sentence>\n    Option: <Fix | Fix A | Fix B>                          (FIX only)\n    Return when: <condition>                               (LIMIT only)\n    Options: A: <approach · strength · cost>; B: <…>        (ESCALATE only)\n    Recommendation: <option and why>                       (ESCALATE only)\n\n  Approach question (<E4|E6>): <the approach question in one sentence>\n    Covers: F<n>[, F<m>…]\n    Options: A: <approach · strength · cost>; B: <…>\n    Reviewer choice: <option> → <FIX|LIMIT>: <why>\n    Return when: <condition>                               (→ LIMIT only)\n    To human: <no | yes — round 3 | E6 | CRITICAL or HIGH | paid run or data sending | changes intent or criteria>\n  ```\n  `Return when` names the condition under which the limitation starts to matter, so that a later retrospective can recognise it in a change's traces: a file or directory a change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users). Under E4, `Covers` lists every finding of the round with an `AUTO-ESCALATE (E4)` line: findings in the looping mechanism, regressions and FIXes that touch it. Under E6, `Covers` lists the round's CRITICAL and WARNING findings to fix outside E4, and `Reviewer choice` says which approach you propose to the human. The options replace the looping mechanism; another patch of the same mechanism is not an option. `To human` is `no` for E4 in round 2 when no option changes the intent or the acceptance criteria and none needs a paid run or sending data, and for E4 in round 3 when `Reviewer choice` is `→ LIMIT`, in both rounds only when `Covers` holds no CRITICAL and no Impact HIGH finding; otherwise it is `yes` with its reason.\n\n### Recording the decisions\n\nCopy the sub-agent's decisions verbatim — do not re-judge them. The only corrections are the two nets below; apply them to the approach question blocks first, then record the corrected blocks once by the rules that follow:\n\n- **E6 net**: round 3 with an AUTO-FIX on a CRITICAL or WARNING finding outside E4 and no `Approach question (E6)` block means the sub-agent missed E6. Add the E6 question yourself — `Covers` those findings, options from their fix options, `Reviewer choice: —`, `To human: yes — E6`. An `Approach question (E4)` block of the round stays as it is, and the findings keep their decisions.\n- **Human gate net**: set `To human: yes — E6` on an E6 block, and `To human: yes — round 3` on an E4 block in round 3 whose `Reviewer choice` is not `→ LIMIT`, whatever the sub-agent wrote. Drop from the `Covers` of an E4 block every finding whose own line is not `AUTO-ESCALATE (E4)`; it keeps its own decision and is recorded like any other finding. Then set `To human: yes — CRITICAL or HIGH` on an E4 block whose `Covers` holds a finding with Severity CRITICAL or Impact HIGH in the report, whatever `Reviewer choice` says.\n\n- **Report**: each finding's `- **Decision**:` line becomes the first line of its block (`AUTO-<…> (<rule>): <reason>`).\n- **Where entries go in `change.md`:** each H2 below collects its own entries. Insert a new subsection or line directly above the first `## ` heading that follows that H2; only when no `## ` heading follows it, append at the end of the file. Example: the `### <report> (runda 2)` subsection goes directly above `## Wymaga Twojej decyzji` when that heading comes after `## Decyzje triage`. Create a missing H2 at the end of the file.\n- **`change.md` → `## Decyzje triage`**: a subsection `### <report path> (runda N)` with one line per finding — `- F<n> — <title> (<SEVERITY>, <IMPACT>, <location>): AUTO-<…> (<rule>): <reason>`. After the fix commit lands, append ` · commit <sha>` to the lines of fixed findings; a finding with a register entry gets ` · D-<nnn>`. Each approach question block adds one more line to its subsection, so round 3 may have two: `- Pytanie o podejście (<E4|E6>): <question> · Uwagi: <Covers> · Recenzent: <option> · Autor: <option, or „—” until the author has chosen, and for E6> · Rozstrzyga: <recenzent i autor | człowiek>`.\n- **LIMIT** → a limitation entry in the register, appended at the end of `context/foundation/limitations.md` (create the file with the heading `# Limitations` when it does not exist). Its number is one past the highest `D-<nnn>` among the headings of the three decision files, which share one numbering: `grep -hoE '^## D-[0-9]{3}' context/foundation/{decisions,limitations,decisions-archive}.md | sort | tail -1` (a missing file adds no numbers; the last heading of one file is not the highest number). Who closed the finding sets `Kto zdecydował`: `Kto zdecydował: model (<skill>)` for an AUTO-LIMIT decision, where `<skill>` is the skill running this triage; `Kto zdecydował: człowiek` for a limitation the human accepted; `Kto zdecydował: recenzent i autor (<skill>)` for a loop that reviewer and author closed with „przestań łatać, zapisz ograniczenie”. The entry:\n  ```markdown\n  ## D-<nnn> Ograniczenie: <finding title>\n  - Pytanie: czy naprawić teraz <the problem in one sentence>?\n  - Wybór: nie; ograniczenie zostaje. <the reason in one sentence>\n  - Kto zdecydował: <as above>\n  - Podstawa: <report> F<n>, reguła <rule> | <the human's words>\n  - Kiedy wrócić: <the condition>\n  - Źródło: <change-id> — `<report>` F<n>\n  - Status: obowiązuje\n  - Zmiana: <change-id>\n  ```\n  `Kiedy wrócić` comes from the `Return when:` line of the finding (or of its approach block). A limitation without that line gets no register entry: its findings are recorded as `AUTO-ESCALATE (poza polityką: brak warunku powrotu) (było: <decision>)` and go to `## Wymaga Twojej decyzji`. L4 adds `, poza polityką` to `Podstawa`. Then append ` · D-<nnn>` to the finding's line in `## Decyzje triage`.\n- **Limitation accepted by the human** in manual triage („accept risk”, or an approach question answered with „przestań łatać, zapisz ograniczenie”) → the same entry for each finding it closes, with `Kto zdecydował: człowiek` and the human's words in `Podstawa`. Propose the `Kiedy wrócić` condition in the confirmation; the human may correct it.\n- **Loop closed by reviewer and author** (round 2 or 3, both chose „przestań łatać, zapisz ograniczenie”; the fix step) → one entry per covered finding, with `Kto zdecydował: recenzent i autor (<skill>)`, `Podstawa: <report> F<n>, reguła E4 w rundzie <N>` and `Kiedy wrócić` from the approach block's `Return when:` line.\n- **L3** → also append an entry to `context/foundation/lessons.md` with the fields Context (the Location), Problem (the Detail), Rule (the gap as a rule for a future change) and Applies to. Create the file with this header first when it is missing:\n\n  ```\n  # Lessons Learned\n\n  > Register of recurring rules and patterns. New lessons are appended at the end; an existing lesson is revised in place when an approved fix extends it, and its previous version stays in git history. "
+          "Automatic triage, plan fixes and re-review\n\n### Triage sub-agent\n\nThis section and \"Recording the decisions\" are one text, the same in `10x-impl-review` and `10x-plan-review` (`scripts/check_refs.py` checks that they match). Where the two skills differ, the text names both variants:\n- the change under review: the code in `10x-impl-review`, the plan in `10x-plan-review`;\n- inputs: `plan-brief.md` exists only in `10x-plan-review`;\n- the diff: `10x-impl-review` takes the range of the review scope in a review the user starts; `10x-plan-review` has a diff only in a re-review, limited to the plan and `plan-brief.md`;\n- the looping fragment: its files in `10x-impl-review`, its plan sections in `10x-plan-review`;\n- step names: \"the fix step\" is Step 6 in `10x-impl-review` and \"Plan fixes\" in `10x-plan-review`; \"manual triage\" is Step 7 and Step 8.\n\n**The gates.** Before the launch, take `<fabryka>/CLAUDE.md` when the prompt of this run names `<fabryka>`, otherwise `CLAUDE.md` in the project root. When that file has no „Kiedy pytać człowieka” section (`grep -n 'Kiedy pytać człowieka' <file>`), run no triage: print `STOP: no „Kiedy pytać człowieka” section in <file>` and STOP; the report stays as saved, with every `Decision: PENDING`.\n\nLaunch **one** sub-agent (`subagent_type: \"general-purpose\"`). It works in a fresh context: it did not write the change under review (the code or the plan) or the report. Its prompt holds only the inputs and instructions below — no commentary of yours on any finding.\n\n**Inputs** (paths and one command):\n- the saved report;\n- `context/changes/<change-id>/change.md`, the plan, `plan-brief.md` if present (`10x-plan-review`), `context/foundation/lessons.md` (if present);\n- `${CLAUDE_SKILL_DIR}/references/triage-policy.md`;\n- the gates: the „Kiedy pytać człowieka” section of the `CLAUDE.md` above, and `docs/zgoda-czlowieka.md` next to it when it exists;\n- the diff of the review scope: a review the user starts — the range of the review scope in `10x-impl-review`, none in `10x-plan-review` (the plan itself is the change under review); a re-review — `git diff <fix-sha>^..<fix-sha>`, in `10x-plan-review` followed by `-- <plan> <plan-brief>`;\n- the round number — from the report's `Round` header line, or 1 when it has none.\n\n**Instructions:**\n- Read only the inputs. Write nothing.\n- Apply the policy rules to each finding in the policy's order (gate, loop, severity); the first matching rule decides. ⭐ is a hint, not a decision — choose between Fix A and Fix B as the policy says.\n- Loop, round ≥ 2: judge it only against the `## Decyzje triage` entries of the earlier reports of this series, not against other series in `change.md`, and only for CRITICAL and WARNING findings; an OBSERVATION finding in the looping fragment gets `AUTO-SKIP (OBSERVATION)`. The covered findings get `AUTO-FIX (zapętlenie)` when the fragment is rewritten and `AUTO-LIMIT (zapętlenie)` at a hard stop (the fragment was already rewritten in an earlier round and still has a finding to fix, or the loop falls in round 3). A hard stop whose disabling breaks an acceptance criterion gives the covered findings `AUTO-ESCALATE (bramka 1)` instead, and its loop block has `To human (bramka 1)` in place of `Hard stop`. Other findings are decided normally.\n- Merging: findings about the same place, e.g. a bug and the missing test right next to it, get one fix and one decision. The main finding carries the decision; each joined finding repeats its category, rule and option, and its reason starts with `razem z F<n>:` naming the main finding.\n- Write reasons in the language of `change.md`.\n- Return exactly one block per finding, then at most one loop block, nothing else:\n  ```\n  F<n>: AUTO-<FIX|LIMIT|ESCALATE|SKIP> (<rule>): <reason in one sentence>\n    Option: <Fix | Fix A | Fix B>                          (FIX only)\n    Return when: <condition>                               (LIMIT only)\n    Options: A: <approach · strength · cost>; B: <…>        (ESCALATE only)\n    Recommendation: <option and why>                       (ESCALATE only)\n\n  Loop (zapętlenie): <the looping fragment>\n    Covers: F<n>[, F<m>…]\n    Why it repeats: <one paragraph>\n    Rewrite: <the fragment to write anew, and how it gets simpler>   (rewrite only)\n    Hard stop: <the feature to disable or cut from scope>           (hard stop only)\n    To human (bramka 1): <the feature whose disabling breaks a criterion>   (hard stop that breaks a criterion only)\n  ```\n  `<rule>` is one of `bramka <n>`, `zapętlenie`, `CRITICAL`, `WARNING`, `WARNING, runda 3`, `OBSERVATION`. `Covers` lists every finding of the round with a `(zapętlenie)` line, and the findings a hard stop sends to the human as `AUTO-ESCALATE (bramka 1)`. `Return when` names the condition under which the limitation starts to matter, so that a later retrospective can recognise it in a change's traces: a file or directory a change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users).\n\n### Recording the decisions\n\nCopy the sub-agent's decisions verbatim — do not re-judge them.\n\n- **Report**: each finding's `- **Decision**:` line becomes the first line of its block (`AUTO-<…> (<rule>): <reason>`). An AUTO-SKIP finding gets only this line and its line in `## Decyzje triage`. A loop block adds a section `## Zapętlenie` at the end of the report: the fragment, `Covers`, and the paragraph „Dlaczego to się powtarza” from `Why it repeats`.\n- **Where entries go in `change.md`:** each H2 below collects its own entries. Insert a new subsection or line directly above the first `## ` heading that follows that H2; only when no `## ` heading follows it, append at the end of the file. Example: the `### <report> (runda 2)` subsection goes directly above `## Wymaga Twojej decyzji` when that heading comes after `## Decyzje triage`. Create a missing H2 at the end of the file.\n- **`change.md` → `## Decyzje triage`**: a subsection `### <report path> (runda N)` with one line per finding — `- F<n> — <title> (<SEVERITY>, <location>): AUTO-<…> (<rule>): <reason>`. After the fix commit lands, append ` · commit <sha>` to the lines of fixed findings; a finding with a register entry gets ` · D-<nnn>`. A loop block adds one more line to its subsection: `- Zapętlenie: <fragment> · Uwagi: <Covers> · <przepisanie | twarde zatrzymanie: <feature> | do człowieka (bramka 1): <feature>>`.\n- **LIMIT** → a limitation entry in the register, appended at the end of `context/foundation/limitations.md` (create the file with the heading `# Limitations` when it does not exist). Its number is one past the highest `D-<nnn>` among the headings of the three decision files, which share one numbering: `grep -hoE '^## D-[0-9]{3}' context/foundation/{decisions,limitations,decisions-archive}.md | sort | tail -1` (a missing file adds no numbers; the last heading of one file is not the highest number). Who closed the finding sets `Kto zdecydował`: `Kto zdecydował: model (<skill>)` for an AUTO-LIMIT decision, where `<skill>` is the skill running this triage; `Kto zdecydował: człowiek` for a limitation the human accepted. The entry:\n  ```markdown\n  ## D-<nnn> Ograniczenie: <finding title>\n  - Pytanie: czy naprawić teraz <the problem in one sentence>?\n  - Wybór: nie; ograniczenie zostaje. <the reason in one sentence>\n  - Kto zdecydował: <as above>\n  - Podstawa: <report> F<n>, reguła <rule> | <the human's words>\n  - Kiedy wrócić: <the condition>\n  - Źródło: <change-id> — `<report>` F<n>\n  - Status: obowiązuje\n  - Zmiana: <change-id>\n  ```\n  `Kiedy wrócić` comes from the `Return when:` line of the finding. A LIMIT without that line gets `Kiedy wrócić: zmiana dotyka <the file from the finding's Location>`; for a plan section, name the files that section changes. Then append ` · D-<nnn>` to the finding's line in `## Decyzje triage`.\n- **Limitation accepted by the human** in manual triage („accept risk”) → the same entry for each finding it closes, with `Kto zdecydował: człowiek` and the human's words in `Podstawa`. Propose the `Kiedy wrócić` condition in the confirmation; the human may correct it.\n- **Lekcja** → when the human in manual triage asks to record the gap as a recurring rule, also append an entry to `context/foundation/lessons.md` with the fields Context (the Location), Problem (the Detail), Rule (the gap as a rule for a future change) and Applies to. Create the file with this header first when it is missing:\n\n  ```\n  # Lessons Learned\n\n  > Register of recurring rules and patterns. New lessons are appended at the end; an existing lesson is revised in place when an approved fix extends it, and its previous version stays in git history. "
         ],
         [
           "wez",
@@ -3697,7 +3862,7 @@
         ],
         [
           "dopisz",
-          "```\n- **ESCALATE** → `## Wymaga Twojej decyzji` (create if absent): `- **<report> F<n> — <title>** · Reguła: <rule> · Opcje: <…> · Rekomendacja: <…>`. Findings covered by an approach question get no entry of their own. Merged findings get one entry with `(razem z F<m>)` in the title.\n- **Approach question** that goes to the human (`To human: yes`, or the author chose differently) → one entry for the round in `## Wymaga Twojej decyzji`: `- **<report> F<n> — pytanie o podejście: <mechanism>** · Reguła: <E4|E6> · Uwagi: <Covers> · Opcje: <…> · Rekomendacja: <reviewer choice> · Autor: <author choice, or „—”>`, where `F<n>` is the first covered finding. The human gets at most one question per round: in round 3, when both the E4 block and the E6 question go to the human, they are one entry — the E6 entry, with the E4 block's `Covers` added to `Uwagi` and its options after the E6 options.\n\n### Plan fixes\n\n1. **Dirty tree?** If the start condition (\"Saving the report\") was not clean: rewrite every AUTO-FIX of this round to `AUTO-ESCALATE (poza polityką: brudne drzewo) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, add one `## Wymaga Twojej decyzji` entry with the `git status --porcelain` output, apply nothing, commit only the report, print the closing message (item 7) and STOP.\n2. **Approach question and stop** (policy, „Pytanie o podejście”), with the blocks as corrected and recorded in \"Recording the decisions\". Settle the E4 block first, then the E6 question:\n   - E4 with `To human: no` (round 2, or round 3 with `Reviewer choice` `→ LIMIT`): launch **one** fresh sub-agent, the author (`subagent_type: \"general-purpose\"`), with the report, `change.md`, the plan, `plan-brief.md` if present, `lessons.md` (if present), the policy, and in round ≥ 2 the diff of the round, and the approach question with its options but without the reviewer's choice. Instructions: choose one option, give the reason in one sentence, write nothing. Put its choice into the `Pytanie o podejście` line of `## Decyzje triage`.\n     - Same option as the reviewer, `→ FIX` (round 2 only): `Rozstrzyga: recenzent i autor`. The approach is the fix of the covered findings and goes with the other AUTO-FIX decisions through items 3–6; append ` · podejście <option>: recenzent i autor` to the covered findings' `Decision` lines in the report and their lines in `## Decyzje triage`.\n     - Same option as the reviewer, `→ LIMIT` (round 2 or 3): `Rozstrzyga: recenzent i autor`. Rewrite each covered finding's decision to `AUTO-LIMIT (E4, runda <N>): <reason> · podejście <option>: recenzent i autor` in the report and `## Decyzje triage`, and write their register entries (\"Recording the decisions\", loop closed by reviewer and author). Nothing is patched, and this is not an applied approach for the re-review in item 6.\n     - Different option: `Rozstrzyga: człowiek`. The question goes to the human with both choices: in round 3 with an E6 question, the covered findings join the E6 entry in `## Wymaga Twojej decyzji` (\"Recording the decisions\"); otherwise add the approach question entry. Leave the covered findings untouched.\n   - E4 with `To human: yes`: leave the covered findings untouched; in round 3 with an E6 question the block is part of the E6 entry.\n   - E6 in the round: apply and verify the AUTO-FIX decisions outside the `Covers` of an E4 block that waits for the human (items 3–5), then print the closing message (item 7) and STOP. There is no re-review.\n   - No E6, and an E4 block waits for the human: apply the AUTO-FIX decisions outside its `Covers` (items 3–5), then print the closing message and STOP without a re-review.\n3. **Apply** every remaining AUTO-FIX to the plan with minimal targeted edits, using the chosen option, and the approach that reviewer and author agreed on (item 2); update `plan-brief.md` only where it now contradicts the plan. Leave the other ESCALATE findings untouched. When a fix adds a phase or a Success Criteria bullet, add its row to `## Progress` as `- [ ] N.M` at the next free index per `references/progress-format.md`. When a fix changes what an existing bullet means, add a short inline note in its Phase block and leave the Progress title as it is. Never change the `[x]`/`[ ]` state of existing rows.\n4. **Check**: re-run the Progress↔Phase consistency scan from Step 1. It blocks only if it passed before this round's fixes (Step 1 in round 1, item 4 of the previous round in round ≥ 2) and fails now. If it blocks:\n   - undo this round's fixes: `git restore` the plan and `plan-brief.md`;\n   - rewrite every AUTO-FIX decision of this round to `AUTO-ESCALATE (poza polityką: Progress) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, so manual triage queues them;\n   - when the round applied an approach that reviewer and author agreed on: set `Rozstrzyga: człowiek` in its `Pytanie o podejście` line, remove the ` · podejście <option>: recenzent i autor` stamp from the covered findings in the report and `## Decyzje triage`, and add the approach question entry to `## Wymaga Twojej decyzji`;\n   - add a `## Wymaga Twojej decyzji` entry „poza polityką” with the scan result;\n   - commit the documents only, print the closing message and STOP.\n5. **Commit**, staging only named files (never `git add -A`, never `--no-verify`). Every commit of the triage documents that takes `lessons.md` — „the documents” here and in item 4 — also takes `context/foundation/limitations.md` when it changed; the commit of only the report in item 1 takes neither.\n   - fixes: the plan and `plan-brief.md` if changed — `docs(<change-id>): AUTO triage fixes from <report>`; then add the SHA to `## Decyzje triage`;\n   - documents: the report, `change.md` and `lessons.md` if it changed — `docs(<change-id>): AUTO triage of <report>`.\n6. **Re-review** when at least one CRITICAL or WARNING finding was fixed, or an approach agreed by reviewer and author was applied (`→ FIX`; an agreed `→ LIMIT` patches nothing), and this round is below 3 — never start round 4. Launch **one** fresh sub-agent (`subagent_type: \"general-purpose\"`) with: the plan path, the fix commit SHA, the previous report path, the round number N + 1, the next report path of the series, and `${CLAUDE_SKILL_DIR}/SKILL.md`. Instructions:\n   - follow Steps 1–5 of that SKILL.md for the plan changes in `git diff <fix-sha>^..<fix-sha>` only;\n   - judge only the changed hunks, reading the rest of the plan as context; parts of the plan this commit did not touch are not findings;\n   - do the codebase checks yourself instead of launching a sub-agent (this replaces Step 3's agent);\n   - run the Criteria coverage scan from Step 1 on the whole plan; its `R4` lines are findings even outside the changed hunks;\n   - in a finding's Detail, say when it is a regression caused by a fix from the previous report, or a new form of a problem that report already raised, and name that earlier finding;\n   - write the report in the standard format with the `Round` header line and every `Decision: PENDING`; skip the `change.md` update in \"Saving the report\"; do not triage, do not edit any other file, do not commit.\n\n   Then refresh `updated` in `change.md` and go back to \"Triage sub-agent\" for the new report (round N + 1). The loop ends when a round fixes no CRITICAL or WARNING finding, when item 1 or 2 stops it, or after round 3.\n7. **Closing message**:\n   ```\n   ═══════════════════════════════════════════════════════════\n     AUTO TRIAGE COMPLETE  |  or: AUTO TRIAGE STOPPED — waiting for you\n   ═══════════════════════════════════════════════════════════\n     Rounds:    [N] — [report paths]\n     Fixed:     [F-ids per report]   Limit: [...]   Escalated: [...]\n     Waiting for you: [approach questions first, then the other entries of ## Wymaga Twojej decyzji, or \"nothing\"]\n     Approach:  [per round: question · settled by reviewer and author | waiting for you, or \"none\"]\n     Manual triage: /10x-plan-review <last report path>\n     ► Verdict after fixes: [verdict of the last round, updated if its fixes changed it]\n   ═══════════════════════════════════════════════════════════\n   ```\n   Then give the next command (see \"Next command\" in Step 8).\n\n## Step 8: Manual "
+          "```\n- **ESCALATE** → `## Wymaga Twojej decyzji` (create if absent): `- **<report> F<n> — <title>** · Reguła: <rule> · Opcje: <…> · Rekomendacja: <…>`. Merged findings get one entry with `(razem z F<m>)` in the title.\n\n### Plan fixes\n\n1. **Dirty tree?** If the start condition (\"Saving the report\") was not clean: rewrite every AUTO-FIX of this round to `AUTO-ESCALATE (poza polityką: brudne drzewo) (było: AUTO-FIX (<rule>): <reason>)` in the report and `## Decyzje triage`, add one `## Wymaga Twojej decyzji` entry with the `git status --porcelain` output, apply nothing, commit only the report, print the closing message (item 7) and STOP.\n2. **Loop** (policy, „Zapętlenie”), from the loop block recorded in \"Recording the decisions\":\n   - rewrite (`AUTO-FIX (zapętlenie)`): the restore point is the oldest commit with ` · commit <sha>` in the `## Decyzje triage` lines of the `Covers` findings and of their earlier findings of this mechanism. Take the fragment from `git show <sha>^:<file>` and replace only that fragment; the fixes of other findings in the same files stay, and the whole file goes back only when that commit changed it solely for findings covered by the loop. Then write the fragment anew, simpler, without the cause from `Why it repeats`. The rewrite goes with the other AUTO-FIX decisions through items 3–6.\n   - hard stop (`AUTO-LIMIT (zapętlenie)`): cut the feature from `Hard stop` out of the plan's scope, into „What We're NOT Doing”, through items 3–5 like an AUTO-FIX; write the register entries of the covered findings (\"Recording the decisions\", LIMIT) only after the fix commit lands (item 5). There is no further patch of the fragment.\n   - to the human (`AUTO-ESCALATE (bramka 1)`, the block has `To human (bramka 1)`): disable nothing and leave the fragment untouched; the covered findings wait in `## Wymaga Twojej decyzji` as merged findings.\n3. **Apply** every AUTO-FIX to the plan with minimal targeted edits, using the chosen option, and the rewrite or hard stop of item 2; update `plan-brief.md` only where it now contradicts the plan. Leave the ESCALATE findings untouched. When a fix adds a phase or a Success Criteria bullet, add its row to `## Progress` as `- [ ] N.M` at the next free index per `references/progress-format.md`. When a fix changes what an existing bullet means, add a short inline note in its Phase block and leave the Progress title as it is. Never change the `[x]`/`[ ]` state of existing rows.\n4. **Check**: re-run the Progress↔Phase consistency scan from Step 1. It blocks only if it passed before this round's fixes (Step 1, or an earlier round's item 4) and fails now. If it blocks:\n   - undo this round's fixes: `git restore` the plan and `plan-brief.md`;\n   - rewrite every AUTO-FIX and `AUTO-LIMIT (zapętlenie)` decision of this round to `AUTO-ESCALATE (poza polityką: Progress) (było: AUTO-<FIX|LIMIT> (<rule>): <reason>)` in the report and `## Decyzje triage`, so manual triage queues them;\n   - add a `## Wymaga Twojej decyzji` entry „poza polityką” with the scan result;\n   - commit the documents only, print the closing message and STOP.\n5. **Commit**, staging only named files (never `git add -A`, never `--no-verify`). Every commit of the triage documents that takes `lessons.md` — „the documents” here and in item 4 — also takes `context/foundation/limitations.md` when it changed; the commit of only the report in item 1 takes neither.\n   - fixes: the plan and `plan-brief.md` if changed — `docs(<change-id>): AUTO triage fixes from <report>`; then add the SHA to `## Decyzje triage`;\n   - documents: the report, `change.md` and `lessons.md` if it changed — `docs(<change-id>): AUTO triage of <report>`.\n6. **Re-review** when at least one CRITICAL or WARNING finding was fixed or a fragment was rewritten (item 2), and this round is below 3 — never start round 4. Launch **one** fresh sub-agent (`subagent_type: \"general-purpose\"`) with: the plan path, the fix commit SHA, the previous report path, the round number N + 1, the next report path of the series, and `${CLAUDE_SKILL_DIR}/SKILL.md`. Instructions:\n   - follow Steps 1–5 of that SKILL.md for the plan changes in `git diff <fix-sha>^..<fix-sha>` only;\n   - judge only the changed hunks, reading the rest of the plan as context; parts of the plan this commit did not touch are not findings;\n   - do the codebase checks yourself instead of launching a sub-agent (this replaces Step 3's agent);\n   - run the Criteria coverage scan from Step 1 on the whole plan; its `R4` lines are findings even outside the changed hunks;\n   - in a finding's Detail, say when it is a regression caused by a fix from the previous report, or a new form of a problem that report already raised, and name that earlier finding;\n   - write the report in the standard format with the `Round` header line and every `Decision: PENDING`; skip the `change.md` update in \"Saving the report\"; do not triage, do not edit any other file, do not commit.\n\n   Then refresh `updated` in `change.md` and go back to \"Triage sub-agent\" for the new report (round N + 1). The loop ends when a round fixes no CRITICAL or WARNING finding, when an item above stops it, or after round 3.\n7. **Closing message**:\n   ```\n   ═══════════════════════════════════════════════════════════\n     AUTO TRIAGE COMPLETE  |  or: AUTO TRIAGE STOPPED — waiting for you\n   ═══════════════════════════════════════════════════════════\n     Rounds:    [N] — [report paths]\n     Fixed:     [F-ids per report]   Limit: [...]   Escalated: [...]\n     Waiting for you: [the entries of ## Wymaga Twojej decyzji, or \"nothing\"]\n     Manual triage: /10x-plan-review <last report path>\n     ► Verdict after fixes: [verdict of the last round, updated if its fixes changed it]\n   ═══════════════════════════════════════════════════════════\n   ```\n   Then give the next command (see \"Next command\" in Step 8).\n\n## Step 8: Manual "
         ],
         [
           "zachowaj",
@@ -3715,7 +3880,7 @@
         ],
         [
           "dopisz",
-          "headers. The queue holds findings with `Decision: PENDING` or `AUTO-ESCALATE`, except covered findings whose approach reviewer and author already agreed on (`Rozstrzyga: recenzent i autor`). Findings covered by one approach question that waits for you form one queue item: ask the question once, with its options and the reviewer's and author's choices; the answer decides every covered finding, and each gets the same `Decision`. After them, ask once (AskUserQuestion) whether "
+          "headers. The queue holds findings with `Decision: PENDING` or `AUTO-ESCALATE`. After them, ask once (AskUserQuestion) whether "
         ],
         [
           "zachowaj",
@@ -3756,6 +3921,15 @@
         [
           "zachowaj",
           17945,
+          18034
+        ],
+        [
+          "dopisz",
+          "[SEV]\\nDimension: "
+        ],
+        [
+          "zachowaj",
+          18095,
           19048
         ],
         [
@@ -3774,20 +3948,11 @@
         [
           "zachowaj",
           19096,
-          19137
-        ],
-        [
-          "dopisz",
-          "argue.\n- **Approach question answered with „przestań łatać, zapisz ograniczenie”**: mark each covered finding ACCEPTED and write their limitation entries the same way.\n\n"
-        ],
-        [
-          "zachowaj",
-          19145,
           19227
         ],
         [
           "dopisz",
-          "**Overriding AUTO decisions:**\n- When the user's decision differs from the finding's AUTO decision, write the new decision followed by `(było: AUTO-<…> (<rule>))`.\n- If the AUTO-FIX was already applied to the plan, name its commit from `## Decyzje triage`; undoing it is handled like \"Fix differently\".\n- Remove resolved entries from `## Wymaga Twojej decyzji` in `change.md`; an answered approach question removes its one entry and sets `Rozstrzyga: człowiek` in its `Pytanie o podejście` line.\n- At the end of the session, if any decision differed from AUTO or resolved an AUTO-ESCALATE, append one entry to `## Interwencje` in `change.md` (create the H2 if absent), numbered after the last `I-N`:\n  ```\n  - **I-N (<change-id>, manual triage of <report>):** <which findings changed, from what to what>.\n    - **Dlaczego:** <the user's reason, or \"nie podano\">.\n    - **Bez interwencji fabryka:** <the AUTO decisions that would have stood>.\n    - **Możliwa reguła:** <a policy rule that would remove the need, or \"do ustalenia w retrospektywie\">.\n  ```\n\n"
+          "**Overriding AUTO decisions:**\n- When the user's decision differs from the finding's AUTO decision, write the new decision followed by `(było: AUTO-<…> (<rule>))`.\n- If the AUTO-FIX was already applied to the plan, name its commit from `## Decyzje triage`; undoing it is handled like \"Fix differently\".\n- Remove resolved entries from `## Wymaga Twojej decyzji` in `change.md`.\n- At the end of the session, if any decision differed from AUTO or resolved an AUTO-ESCALATE, append one entry to `## Interwencje` in `change.md` (create the H2 if absent), numbered after the last `I-N`:\n  ```\n  - **I-N (<change-id>, manual triage of <report>):** <which findings changed, from what to what>.\n    - **Dlaczego:** <the user's reason, or \"nie podano\">.\n    - **Bez interwencji fabryka:** <the AUTO decisions that would have stood>.\n    - **Możliwa reguła:** <a policy rule that would remove the need, or \"do ustalenia w retrospektywie\">.\n  ```\n\n"
         ],
         [
           "zachowaj",
@@ -3828,12 +3993,17 @@
         [
           "zachowaj",
           19765,
+          20081
+        ],
+        [
+          "zachowaj",
+          20246,
           20573
         ]
       ],
       "oryginal": "skills/10x-plan-review/SKILL.md",
       "sha256_oryginalu": "32bf19d6f3c247e7cd0bfdfc387616742d640a0e928af738573aec74af1e4615",
-      "sha256_wyniku": "1da27df81c7fccfb9c627553c3aa2bc7b87e3952b366c3170ee36022fe384001"
+      "sha256_wyniku": "eb302efe58aa5eec01996fde82638555537d856b0f7d0093b353e036312b5c25"
     },
     "skills/10x-plan-review/references/progress-format.md": {
       "operacje": [
@@ -4809,7 +4979,7 @@
         ],
         [
           "dopisz",
-          "headings. Checkboxes (`- [ ]`) appear only in the `## Progress` section.\n\n**Not a Manual row.** A Manual Verification item, and so a `#### Manual` row in `## Progress`, is only for something a human does before archiving. Two kinds of check never get one:\n\n- A criterion from `change.md` that the verifier agent judges at `/10x-archive` (its `Sprawdzenie` says `weryfikator`). The verifier report and rule 5 of `validate_change.py` already judge it; a Manual row like „the verifier reads X” would only block archiving with a step no human has to do.\n- A check that can only run after the merge or in a later change. It goes as a point into the intent of the next change, not into this plan's `## Progress`, because nobody can tick it before this change is archived.\n\nA Manual row stays for a human's action that can happen before archiving: a consent, a judgement, a review of a diff, a command the human runs and reads.\n\nPrefer Automated criteria that check a state the later phases leave intact, so a criterion that passed once still passes at the end of the plan. When a later phase deliberately changes the state an earlier phase's Automated criterion checks (it removes the file, renames the section, flips the value), say so at that criterion: name the later phase after which it no longer holds and give the replacement criterion that checks the new state from then on.\n\nThe reverse also holds: a phase does not write the path of a file that only a later phase creates into a place an existence check reads (a list checked with `ls`, a `scripts/…` reference in `skills/` checked by `scripts/check_refs.py`). Otherwise that phase's criterion fails before the later phase runs. The phase that creates the file adds the reference.\n\n"
+          "headings. Checkboxes (`- [ ]`) appear only in the `## Progress` section.\n\n**Not a Manual row.** A Manual Verification item, and so a `#### Manual` row in `## Progress`, is only for something a human does before archiving. Two kinds of check never get one:\n\n- A criterion from `change.md` that the verifier agent judges at `/10x-archive` (its `Sprawdzenie` says `weryfikator`). The verifier report and rule 5 of `validate_change.py` already judge it; a Manual row like „the verifier reads X” would only block archiving with a step no human has to do.\n- A check that can only run after the merge or in a later change. It goes as a point into the intent of the next change, not into this plan's `## Progress`, because nobody can tick it before this change is archived.\n\nA Manual row stays for a human's action that can happen before archiving: a consent, a judgement, a review of a diff, a command the human runs and reads.\n\n**Tests the step's sandbox cannot run.** When the plan has tests that a `claude -p` step cannot run in its sandbox (e.g. tests run by `claude …`), the main session runs them right after the first phase that writes them, not only at the end. Put a short phase for that run directly after that phase, shaped like the final run: `#### Manual` rows the main session does itself and a run report in `runs/`. The next phases start only after it, so they build on tests that are known to load. The final run after the last code commit stays.\n\n"
         ],
         [
           "zachowaj",
@@ -4819,7 +4989,7 @@
       ],
       "oryginal": "skills/10x-plan/SKILL.md",
       "sha256_oryginalu": "8a0fb60803173a825c808cb90b7875a2073f914cb31de2428db7e0483e1fe2f0",
-      "sha256_wyniku": "2276146dfd9c67b8f6f1f4f98b6ebe87bf062b1095e4e34774ee54f793193e0e"
+      "sha256_wyniku": "fc2051199f0f6fc7cc4b157d6a7ef67399c00cf5b6dc1340248f913ad8655bbd"
     },
     "skills/10x-plan/references/progress-format.md": {
       "operacje": [
@@ -5081,6 +5251,42 @@
         [
           "zachowaj",
           0,
+          1218
+        ],
+        [
+          "dopisz",
+          "one change per slice, "
+        ],
+        [
+          "zachowaj",
+          1218,
+          4859
+        ],
+        [
+          "dopisz",
+          "folders. One slice is "
+        ],
+        [
+          "zachowaj",
+          4868,
+          4872
+        ],
+        [
+          "dopisz",
+          "change: the user stories it covers become phases of "
+        ],
+        [
+          "zachowaj",
+          4932,
+          4937
+        ],
+        [
+          "dopisz",
+          "change's plan, not separate changes.\n"
+        ],
+        [
+          "zachowaj",
+          4966,
           5007
         ],
         [
@@ -5099,6 +5305,245 @@
         [
           "zachowaj",
           5263,
+          30687
+        ],
+        [
+          "dopisz",
+          "Requirements` in the order they can be built. "
+        ],
+        [
+          "zachowaj",
+          30702,
+          30776
+        ],
+        [
+          "zachowaj",
+          30787,
+          30800
+        ],
+        [
+          "dopisz",
+          "capability "
+        ],
+        [
+          "zachowaj",
+          30813,
+          30833
+        ],
+        [
+          "dopisz",
+          "…\" — one Outcome line, which names several capabilities when the slice covers several stories.\n"
+        ],
+        [
+          "zachowaj",
+          30837,
+          30940
+        ],
+        [
+          "dopisz",
+          "Covers every story up to the next point where the build has to stop anyway (see \"Slice boundaries\" below). Its `PRD refs` lists those US-NN in build order, and each of them becomes "
+        ],
+        [
+          "zachowaj",
+          30961,
+          30965
+        ],
+        [
+          "dopisz",
+          "phase of the slice's change, so a single "
+        ],
+        [
+          "zachowaj",
+          30965,
+          30988
+        ],
+        [
+          "dopisz",
+          "plans them all.\n\n"
+        ],
+        [
+          "zachowaj",
+          31199,
+          31987
+        ],
+        [
+          "dopisz",
+          "Every slice becomes one change, "
+        ],
+        [
+          "zachowaj",
+          32050,
+          32054
+        ],
+        [
+          "dopisz",
+          "every change pays the whole build chain once (plan, plan review, implementation, code review, archive). A new slice therefore starts only where that chain stops anyway; the stories between two such points are phases of one change, "
+        ],
+        [
+          "zachowaj",
+          32093,
+          32097
+        ],
+        [
+          "dopisz",
+          "separate slices. Size is not a reason to start a new slice: a slice with many stories and no stop between them stays "
+        ],
+        [
+          "zachowaj",
+          32120,
+          32130
+        ],
+        [
+          "dopisz",
+          "with many phases.\n\nUse these boundary triggers — every boundary between two slices names one of them:\n\n- **Human checkpoint** — the human has to see, try, or accept a result before the next story makes sense (e.g., confirming "
+        ],
+        [
+          "zachowaj",
+          32130,
+          32135
+        ],
+        [
+          "dopisz",
+          "the north star works before building on it).\n- **External condition** — the next story needs something the team cannot produce alone: an account, an access grant, a vendor approval, a design asset. It shows up as a Blocker (external, pending) or as external state in Prerequisites.\n- **Gate** — the next story needs an explicit human approval before it can run: a paid service, publishing something, sending data to a third party.\n- **Separate large risk** — the next story carries its own risk that can sink it independently "
+        ],
+        [
+          "zachowaj",
+          32148,
+          32155
+        ],
+        [
+          "dopisz",
+          "stories before it: an Unknown with `Block: yes`, "
+        ],
+        [
+          "zachowaj",
+          32254,
+          32257
+        ],
+        [
+          "dopisz",
+          "a second, independent "
+        ],
+        [
+          "zachowaj",
+          32358,
+          32363
+        ],
+        [
+          "dopisz",
+          "that would not fit "
+        ],
+        [
+          "zachowaj",
+          32685,
+          32689
+        ],
+        [
+          "dopisz",
+          "earlier "
+        ],
+        [
+          "zachowaj",
+          32755,
+          32768
+        ],
+        [
+          "dopisz",
+          "line.\n\nThe Risk "
+        ],
+        [
+          "zachowaj",
+          32768,
+          32773
+        ],
+        [
+          "dopisz",
+          "of a slice names the trigger that ends it (the last slice ends with the PRD). When no trigger separates two candidate slices, merge them into one slice with "
+        ],
+        [
+          "zachowaj",
+          32782,
+          32787
+        ],
+        [
+          "dopisz",
+          "phases. When a trigger falls between two stories of "
+        ],
+        [
+          "zachowaj",
+          32792,
+          32796
+        ],
+        [
+          "dopisz",
+          "slice, move the boundary there. Never place a boundary "
+        ],
+        [
+          "zachowaj",
+          32855,
+          32858
+        ],
+        [
+          "dopisz",
+          "technical layer: "
+        ],
+        [
+          "zachowaj",
+          33113,
+          33156
+        ],
+        [
+          "dopisz",
+          "UI\" are layers, while \"user can save, search, and share recipes\" is one vertical slice with three phases.\n\n"
+        ],
+        [
+          "zachowaj",
+          33162,
+          41766
+        ],
+        [
+          "dopisz",
+          "US-02, FR-001 "
+        ],
+        [
+          "zachowaj",
+          41774,
+          41877
+        ],
+        [
+          "dopisz",
+          "US-03, US-04, FR-003 "
+        ],
+        [
+          "zachowaj",
+          41892,
+          41995
+        ],
+        [
+          "dopisz",
+          "US-05, "
+        ],
+        [
+          "zachowaj",
+          42002,
+          44540
+        ],
+        [
+          "dopisz",
+          "line: why sequenced here, and the boundary trigger that ends this slice>\n"
+        ],
+        [
+          "zachowaj",
+          44546,
+          47661
+        ],
+        [
+          "dopisz",
+          "On a slice it also names the boundary trigger that ends the slice (Step 6b). "
+        ],
+        [
+          "zachowaj",
+          47661,
           47924
         ],
         [
@@ -5122,6 +5567,132 @@
         [
           "zachowaj",
           48235,
+          51901
+        ],
+        [
+          "dopisz",
+          "every boundary between two `S-NN` slices names a boundary trigger from Step 6b (human checkpoint, external condition, gate, separate large risk) in the Risk line of the slice it ends, and "
+        ],
+        [
+          "zachowaj",
+          51901,
+          51904
+        ],
+        [
+          "dopisz",
+          "slice has such a stop between two of its own stories. A boundary without a trigger, or a stop in "
+        ],
+        [
+          "zachowaj",
+          51922,
+          51926
+        ],
+        [
+          "dopisz",
+          "middle "
+        ],
+        [
+          "zachowaj",
+          51935,
+          51940
+        ],
+        [
+          "dopisz",
+          "slice, FAILS the self-review. The number of stories or FRs in a "
+        ],
+        [
+          "zachowaj",
+          52006,
+          52012
+        ],
+        [
+          "dopisz",
+          "is not a failure. "
+        ],
+        [
+          "zachowaj",
+          52221,
+          52228
+        ],
+        [
+          "dopisz",
+          "merging slices or by moving the boundary to the stop — never "
+        ],
+        [
+          "zachowaj",
+          52275,
+          60302
+        ],
+        [
+          "dopisz",
+          "**Boundaries only where the build stops.** "
+        ],
+        [
+          "zachowaj",
+          60346,
+          60377
+        ],
+        [
+          "dopisz",
+          "and size is never a reason "
+        ],
+        [
+          "zachowaj",
+          60403,
+          60406
+        ],
+        [
+          "dopisz",
+          "start a new slice. "
+        ],
+        [
+          "zachowaj",
+          60421,
+          60423
+        ],
+        [
+          "dopisz",
+          "slice ends only at a human checkpoint, an external condition, a gate, or a separate large risk (Step 6b); "
+        ],
+        [
+          "zachowaj",
+          60460,
+          60464
+        ],
+        [
+          "dopisz",
+          "stories between two such points "
+        ],
+        [
+          "zachowaj",
+          60492,
+          60496
+        ],
+        [
+          "dopisz",
+          "phases of one change. Never place "
+        ],
+        [
+          "zachowaj",
+          60515,
+          60517
+        ],
+        [
+          "dopisz",
+          "boundary "
+        ],
+        [
+          "zachowaj",
+          60641,
+          62440
+        ],
+        [
+          "dopisz",
+          "slice boundaries without a boundary trigger, "
+        ],
+        [
+          "zachowaj",
+          62458,
           67438
         ],
         [
@@ -5140,7 +5711,7 @@
       ],
       "oryginal": "skills/10x-roadmap/SKILL.md",
       "sha256_oryginalu": "f11fe77dce54986b43cbec367209a943a812b7c81bb0d9b9b9f84e7eb212138f",
-      "sha256_wyniku": "c6e4dd0d5766d125828d3926668ca6d12e65bc50fb810f927da436d004d79dce"
+      "sha256_wyniku": "c5a167164535f53ac7ae9bb5efdd575083611510c2967f3e262186d01ed3df70"
     },
     "skills/10x-stack-assess/references/agent-friendly-criteria.md": {
       "operacje": [

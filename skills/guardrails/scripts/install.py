@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Install guardrails into a project.
 
-    python3 install.py <project> [--fast-check CMD] [--fast-check-include GLOB ...]
-                                 [--allow-domain DOMAIN ...] [--allow-write PATH ...]
+    python3 install.py <project> [--allow-domain DOMAIN ...] [--allow-write PATH ...]
 
-- copies the hooks to <project>/.claude/hooks/guardrails/
+- copies the hooks to <project>/.claude/hooks/guardrails/; none of them runs a
+  program of the project (lint runs only in the verify command, in the sandbox)
 - creates <project>/.claude/guardrails.json (defaults + flags) if missing
 - creates <project>/.claude/agents/verifier.md if missing
 - adds .claude/settings.local.json and .claude/locked-tests.sandbox to the
@@ -19,15 +19,25 @@
   the flags). settings.json is written last, so a failed run never leaves
   hooks registered without their config.
 
+It runs outside the sandbox on files another step may have written, so it
+follows no link: a file it reads is opened without following a symbolic link
+and must be a regular file with one hard link, every folder it writes in must
+lie in the project (a git exclude file outside it only gets a WARN), and a
+temporary file is created only when no file of that name exists.
+
 Idempotent: a second run changes nothing. Exit codes: 0 ok; 1 settings.json
 or guardrails.json unreadable (nothing written); 2 bad arguments, missing
-templates, or the target is the skills repository itself; 3 a write failed
+templates, the target is the skills repository itself, or a file to read
+or a folder to write in is a link or lies outside the project (nothing
+written); 3 a write failed
 part way (the files already written are listed).
 """
 
 import argparse
+import errno
 import json
 import os
+import stat
 import subprocess
 import sys
 
@@ -39,12 +49,10 @@ sys.dont_write_bytecode = True
 sys.path.append(HOOKS_SRC)
 import guardlib  # noqa: E402
 
-HOOK_FILES = ["guardlib.py", "protect_paths.py", "block_secrets.py", "lock_tests.py", "post_edit_check.py"]
+HOOK_FILES = ["guardlib.py", "protect_paths.py", "block_secrets.py", "lock_tests.py"]
 PRE_HOOKS = ["protect_paths.py", "block_secrets.py", "lock_tests.py"]
-POST_HOOKS = ["post_edit_check.py"]
 SYNC_HOOKS = ["lock_tests.py"]
 PRE_MATCHER = "Edit|Write|MultiEdit|NotebookEdit|Bash"
-POST_MATCHER = "Edit|Write|MultiEdit|NotebookEdit"
 SYNC_MATCHER = "Edit|Write|MultiEdit|NotebookEdit|Bash"
 HOOKS_REL = ".claude/hooks/guardrails"
 CONFIG_REL = guardlib.CONFIG_REL
@@ -72,8 +80,21 @@ def hook_entry(script, timeout):
 
 
 def read_text(path):
-    with open(path, encoding="utf-8") as fh:
-        return fh.read()
+    """The text of a regular file with one hard link, opened without following a symbolic link (O_NOFOLLOW): a link
+    another step planted must not make the installer read a file from outside the project. OSError otherwise."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError(errno.EINVAL, "not a regular file", path)
+        if info.st_nlink > 1:
+            raise OSError(errno.EMLINK, f"a file with {info.st_nlink} hard links", path)
+        with os.fdopen(fd, encoding="utf-8") as fh:
+            fd = None
+            return fh.read()
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def read_installed(project, rel):
@@ -155,7 +176,6 @@ def merged_settings(path, sandbox_lists):
 
     hooks = _object(settings, "hooks", "hooks")
     for event, matcher, scripts, timeout in (("PreToolUse", PRE_MATCHER, PRE_HOOKS, 10),
-                                             ("PostToolUse", POST_MATCHER, POST_HOOKS, 45),
                                              ("PostToolUse", SYNC_MATCHER, SYNC_HOOKS, 10)):
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):
@@ -184,25 +204,26 @@ def merged_settings(path, sandbox_lists):
 
 
 def split_values(values):
-    """Accept "--fast-check-include '*.ts' '*.tsx'" as well as one quoted
-    "'*.ts *.tsx'" or "'*.ts,*.tsx'" argument; the same for the other lists."""
+    """Accept "--allow-domain a.org b.org" as well as one quoted "'a.org b.org'"
+    or "'a.org,b.org'" argument; the same for --allow-write."""
     return [p for value in values for p in value.replace(",", " ").split()]
-
-
-include_patterns = split_values
 
 
 def load_project_config(project):
     """The existing guardrails.json, validated like the hooks do, and its raw keys."""
     try:
+        text = read_text(os.path.join(project, CONFIG_REL))
+    except OSError as exc:
+        raise InstallError(f"cannot read {CONFIG_REL} ({exc}); remove or fix it and re-run", 1)
+    try:
         config = guardlib.load_config(project)
-        raw = json.loads(read_text(os.path.join(project, CONFIG_REL)))
+        raw = json.loads(text)
     except (guardlib.GuardError, OSError, ValueError) as exc:
         raise InstallError(f"{exc}", 1)
     return config, raw
 
 
-def plan_install(project, fast_check, fast_check_include, allow_domains=(), allow_write=()):
+def plan_install(project, allow_domains=(), allow_write=()):
     """([(rel_path, new_text or None, action)], warnings) — validated before
     any write; settings.json comes last."""
     if not os.path.isdir(project):
@@ -237,9 +258,6 @@ def plan_install(project, fast_check, fast_check_include, allow_domains=(), allo
             if key not in raw:
                 config[key] = template[key]  # a file from an older version
         suggested = {}
-        if fast_check or fast_check_include:
-            suggested["fast_check"] = fast_check
-            suggested["fast_check_include"] = include_patterns(fast_check_include or [])
         for key, values in (("allowed_domains", allow_domains), ("allow_write", allow_write)):
             extra = [v for v in values if v not in config[key]]
             if extra:
@@ -252,10 +270,6 @@ def plan_install(project, fast_check, fast_check_include, allow_domains=(), allo
         steps.append((CONFIG_REL, None, "kept" + note))
     else:
         config = dict(template)
-        if fast_check:
-            config["fast_check"] = fast_check
-        if fast_check_include:
-            config["fast_check_include"] = include_patterns(fast_check_include)
         config["allowed_domains"] = config["allowed_domains"] + [
             d for d in allow_domains if d not in config["allowed_domains"]]
         config["allow_write"] = config["allow_write"] + [
@@ -280,10 +294,15 @@ def plan_install(project, fast_check, fast_check_include, allow_domains=(), allo
             warnings.append("cannot find the git exclude file (git rev-parse --git-path info/exclude failed); "
                             "add " + " and ".join(lines) + " to it, or the test lock of /10x-tdd "
                             "bug-fix mode shows up as untracked files")
+        elif os.path.commonpath([os.path.realpath(project),
+                                 os.path.realpath(os.path.dirname(exclude))]) != os.path.realpath(project):
+            # A .git file (worktree, submodule, --separate-git-dir) points outside the project: the installer writes
+            # nothing outside it.
+            warnings.append(f"the git exclude file {exclude} lies outside the project, so it is not written; add "
+                            + " and ".join(lines) + " to it, or the test lock of /10x-tdd bug-fix mode shows up as "
+                            "untracked files")
         else:
             exclude_rel = os.path.relpath(exclude, project)
-            if exclude_rel.startswith(".."):
-                exclude_rel = exclude
             text = read_installed(project, exclude) if os.path.exists(exclude) else ""
             missing = [line for line in lines if line not in text.splitlines()]
             if not missing:
@@ -317,15 +336,39 @@ def plan_install(project, fast_check, fast_check_include, allow_domains=(), allo
     return steps, warnings
 
 
-def write_atomic(path, text):
+TMP_SUFFIX = ".tmp-guardrails"
+
+
+def target_problem(path, bases):
+    """Why the installer must not write `path`: the real path of its folder (the folders that do not exist yet
+    count by their nearest existing parent) is outside every base, or its temporary file already exists. None when
+    it may write."""
+    folder = os.path.realpath(os.path.dirname(path))
+    if not any(os.path.commonpath([base, folder]) == base for base in bases):
+        return f"its folder is {folder}, outside the project"
+    if os.path.lexists(path + TMP_SUFFIX):
+        return f"{os.path.basename(path)}{TMP_SUFFIX} already exists"
+    return None
+
+
+def write_atomic(path, text, bases):
+    """Write `path` through a temporary file next to it, created with O_CREAT and O_EXCL (a link or file of that
+    name planted by another step is never followed nor overwritten), after target_problem; OSError otherwise."""
+    problem = target_problem(path, bases)
+    if problem:
+        raise OSError(errno.EPERM, problem, path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp-guardrails"
+    problem = target_problem(path, bases)
+    if problem:
+        raise OSError(errno.EPERM, problem, path)
+    tmp = path + TMP_SUFFIX
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o666)
     try:
-        with open(tmp, "w", encoding="utf-8") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
         os.replace(tmp, path)
     except OSError:
-        if os.path.isfile(tmp):
+        if os.path.isfile(tmp) and not os.path.islink(tmp):
             os.remove(tmp)
         raise
 
@@ -333,9 +376,6 @@ def write_atomic(path, text):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Install guardrails into a project.")
     parser.add_argument("project")
-    parser.add_argument("--fast-check", help='command run after each edit; "{file}" is the edited file')
-    parser.add_argument("--fast-check-include", nargs="*", default=[], metavar="GLOB",
-                        help="only run fast_check for files matching these patterns")
     parser.add_argument("--allow-domain", nargs="*", default=[], metavar="DOMAIN",
                         help="extra hosts sandboxed commands may reach (e.g. pypi.org)")
     parser.add_argument("--allow-write", nargs="*", default=[], metavar="PATH",
@@ -343,16 +383,24 @@ def main(argv=None):
     args = parser.parse_args(argv)
     project = os.path.abspath(args.project)
     try:
-        steps, warnings = plan_install(project, args.fast_check, args.fast_check_include,
-                                       args.allow_domain, args.allow_write)
+        steps, warnings = plan_install(project, args.allow_domain, args.allow_write)
     except InstallError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.code
+    # Every folder to write in lies in the project, checked before the first write, so a planted link stops the run
+    # with nothing written.
+    bases = [os.path.realpath(project)]
+    for rel, text, _ in steps:
+        problem = target_problem(os.path.join(project, rel), bases) if text is not None else None
+        if problem:
+            print(f"error: cannot write {rel}: {problem}; remove the link or file and re-run (nothing was written)",
+                  file=sys.stderr)
+            return 2
     written = []
     for rel, text, action in steps:
         if text is not None:
             try:
-                write_atomic(os.path.join(project, rel), text)
+                write_atomic(os.path.join(project, rel), text, bases)
             except OSError as exc:
                 print(f"error: cannot write {rel} ({exc})", file=sys.stderr)
                 print("written before the failure: " + (", ".join(written) or "nothing"), file=sys.stderr)

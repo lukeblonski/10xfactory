@@ -1,508 +1,35 @@
 #!/usr/bin/env python3
-"""Autopilot of one change: lead a change with a finished intent from research
-to `git push` and the retrospective PR step, each agent step in a fresh
-`claude -p` session, without a terminal and without any interactive session.
+"""Autopilot of one change: leads a change with a finished intent from research to `git push` and the record
+of the run, each agent step in a fresh `claude -p` session.
 
     python3 scripts/autopilot.py <change-id> [--odpowiedz TEKST | --przyjmij | --krok]
-
-Two roots. The laboratory is the folder above scripts/ of this file ($AUTOPILOT_LAB replaces it, for the
-tests): check_intent.py, run_evals.sh, retro_pr.py, skills/ and the docs PLAN_NOTE names come from it. The repo
-of the change is `git rev-parse --show-toplevel` of the current folder: context/, .autopilot-local/, the branch,
-the commits and context/przebiegi/ are there. When the two differ (realpath), the repo is an application repo:
-the autopilot runs there as `python3 <lab>/scripts/autopilot.py <id>`, every command hint names that full path
-(and `python3 <lab>/scripts/retro_pr.py`), PLAN_NOTE names <lab>/CLAUDE.md and <lab>/docs/… in full, the steps
-testy-fabryki, wynik-testow, synchronizacja-skilli, krok-pr and synchronizacja-po-pr end skipped with the log line
-`pominięty, repo aplikacji: <what the step does not do>`, and every proposal of retro.md waits for the human
-(the list at the end: `czeka na człowieka (repo aplikacji: …)`; `## Wynik kroku PR`: `stan: czeka na
-człowieka`). In the laboratory the hints stay `python3 scripts/autopilot.py` and the chain is as before.
-
-The main branch comes from the repo (D-253): origin/HEAD without `origin/`, else the one of master and main
-that exists; without origin/HEAD and with both or neither of them the start fails with the command to fix it.
-The step names (checkout-master) and the field master_przed of the state file keep their names; below, master
-means that main branch.
-
-The Claude Code session that talks to the human starts it in the background,
-runs `--krok` once to show the running step, and waits for the notification
-that it ended (docs/sesja-glowna.md). The
-autopilot reads no stdin and needs no terminal: stdin and stdout may be pipes
-or /dev/null.
-
-One invocation runs to the nearest boundary: from the first step without a
-complete trace to the end of the nearest `claude -p` step (research, plan,
-plan-review, implement, impl-review, archiwum), then it ends. The command steps
-before it run in the same invocation; the last invocation runs the whole tail
-after archiwum. At a boundary it prints `autopilot: krok <name>: agent
-rozstrzygnął sam: <n>` (with ` — <question 1>; <question 2>…` when n > 0, each
-question cut to QUESTION_CHARS characters: the lines of `## Pytania do
-człowieka` of change.md with `krok: <name>` and `rozstrzygnął: agent`, read
-through pomiar.parse_questions; for archiwum also `krok: archive`; a bad
-question line or a missing change.md gives the same start with the problem and
-does not stop the autopilot), then `autopilot: dalej: krok <next>; uruchom
-ponownie: python3 scripts/autopilot.py <id>`, after the last step `autopilot:
-przebieg zakończony`.
-
-The steps, in this order (fixed names, they appear in the output and in the
-state file); every `claude -p` prompt (research, plan, plan-review, implement,
-impl-review, archiwum) ends with an empty line, the sentence that <fabryka> is
-the laboratory folder (its full path), an empty line, FACTS_NOTE (the rule on
-facts about outside services in CLAUDE.md of the laboratory, full path in an
-app repo), an empty line and STATE_NOTE (pid_kroku of the state file is the
-step's own process, pid the autopilot that started it):
-
-1. start: check_intent.py of the laboratory on context/changes/<id>/change.md
-   of the repo exits 0, the current branch is <id>, the main branch is known
-   and exists, git ignores .autopilot-local/ (`git check-ignore -q
-   .autopilot-local/x`), research.md does not exist; then the field
-   sekcje_startu gets the lines of `## Zgody` of change.md and of
-   `## Dostępy` and `## Wdrożenie` of CLAUDE.md from the commit HEAD;
-2. research: `/10x-research <id> <question>`; skipped with one log line (the short path) when change.md has
-   exactly one risk line and it starts `**Ryzyko.** Niskie.`;
-3. plan: `/10x-plan <id>` plus PLAN_NOTE;
-4. plan-review: `/10x-plan-review <id>`;
-5. implement: `/10x-goal-implement <id>` (without /goal);
-6. impl-review: `/10x-impl-review <id>`, plus two review points (secrets of
-   a CI file only in the deploy steps of the tools of `## Wdrożenie`; a
-   database migration backward compatible and deleting nothing);
-7. przygotowanie-wdrozenia (prep_attempt): the checks first (impl-review in
-   zrobione; sekcje_startu equal to HEAD, rodzaj: zgoda; a line `zgoda: plik
-   <path>` for every file under context/changes/<id>/chronione/, rodzaj:
-   zgoda; ci_secret_problems on every .github/workflows/ file after writing;
-   the sandbox domains the branch adds belong to `zgoda: domena`, rodzaj:
-   domena), the first that fails stops before anything is written; then the
-   domains and protected files of the consents in one commit of those paths,
-   zgoda_scalenia, the field pliki_chronione and, with `zgoda: sekrety`, the
-   `- sekret:` lines of `## Wdrożenie` through secret_attempt (the value on
-   stdin, the output to DEVNULL, the log without it); `nic do wpisania`
-   without consents and chronione/ (so in the laboratory); last, also after
-   `nic do wpisania`, the CI of the branch (branch_ci_run, D-428): with a
-   workflow of HEAD with the line `# autopilot: ci-galezi` (the CI template
-   of the guardrails) `git push -u origin <id>` and the wait for its run of
-   HEAD (ci_run_wait, as in step 13); a failure stops the step before the
-   archive and the merge with the failed jobs and the last 200 lines of
-   `gh run view --log-failed` in .autopilot-local/<id>/; without such a
-   workflow the log line `brak CI gałęzi` (the laboratory, apps of paczka
-   1.0) and exit 0, but a stop when the main branch has such a workflow and
-   HEAD lost it; the commit CI checked goes to the state (impl-review F4), and
-   step 12 runs that CI again on the commit that merges when it is another one;
-8. testy-fabryki: $AUTOPILOT_EVALS (default scripts/run_evals.sh of the
-   laboratory) only for
-   the tests that check the files of `git diff --name-only master...<id>`
-   (docs/zasady-budowy.md, point 8): --change <id> <tests> with the tests of
-   every matching prefix of EVALS_FOR, in the order of the run_evals.sh
-   registry; --quick --change <id> when the branch changes a file of the tests
-   themselves (EVALS_FILES); skipped when no test checks a changed file;
-9. wynik-testow: commit the new context/changes/<id>/reviews/evals-*.md by
-   name (skipped without them), because /10x-archive needs a clean folder;
-10. synchronizacja-skilli: for every skill folder skills/<name>/ the branch
-    changes, `rsync -a --delete <lab>/skills/<name>/
-    <config_dir()>/skills/<name>/` (an argument list, no shell); a name without
-    the folder skills/<name>/ in the laboratory (a moved or removed skill) gets
-    the line `pominięty: brak folderu w repo` and nothing in <config>/skills
-    is removed; skipped when the branch changes no skill; the commands go to
-    the field `synchronizacja` of the state file and to the list at the end;
-11. archiwum: `/10x-archive <id>`, after two checks without `claude -p` (a
-    resume with --odpowiedz repeats only b); the first that fails stops the
-    step with a .log of its reason, the key `rodzaj` in the field zatrzymanie
-    and the stop line in change.md (the folder is not moved yet):
-    a. Manual rows (A12, A13; rodzaj: manual): `python3
-       <lab>/skills/10x-impl-review/scripts/validate_change.py <id> --repo
-       <repo> --rules 7` exits other than 0 (its `R7: …` lines, or exit 2
-       without `## Progress`); the human ticks the rows with the SHA, commits
-       plan.md and runs the autopilot again, and --przyjmij is refused;
-    b. the merge (A11, A22, D-254; rodzaj: scalenie): `git diff --name-only
-       <main>...<id>` has .mcp.json or .claude/settings*.json (any case of
-       the letters) and the field zgoda_scalenia does not have the same files
-       with the same blobs; the reason lists the files; the main session
-       writes `zrobiono: zgoda na scalenie: człowiek, <files>` into that stop
-       line and commits change.md (--przyjmij is refused while the committed
-       line has `zrobiono: —`), then the human runs --przyjmij, which writes
-       zgoda_scalenia = {"pliki": [...], "bloby": {<path>: <git rev-parse
-       <id>:<path>> or "usunięty"}} and runs archiwum (it does not go to
-       zrobione or przyjete without its run). A new version of such a file
-       stops again, a commit of other files does not. A plain --przyjmij of
-       archiwum after another stop is refused while b would stop;
-12. checkout-master, merge, push: `git checkout <main branch>`, `git merge
-    --ff-only <id>` (the commit of the main branch before it goes to the
-    field glowna_przed_scaleniem first), `git push`; when the CI of the branch
-    of step 7 passed on a commit and the branch now ends on another one (the
-    commit of archiwum, a rebase), merge first pushes the branch and waits for
-    that CI on the commit that merges (branch_ci_wait, impl-review-2 F5 of
-    paczka-1-1), and a failure, or that commit without the marker line, stops
-    it before the merge;
-13. wynik-wdrozenia (deploy_result_attempt): skipped (`pominięty: repo nie
-    ma ## Wdrożenie w CLAUDE.md`, exit 0) without `## Wdrożenie` in CLAUDE.md
-    of the main branch, so in the laboratory; else the fields of
-    `## Wdrożenie` it runs must equal sekcje_startu, then $AUTOPILOT_GH (default
-    gh) waits for the CI run of the pushed commit (`gh run list` every
-    CI_POLL seconds for at most CI_APPEAR seconds, `gh run watch
-    --exit-status`); success sets the item of the change in
-    context/foundation/roadmap.md to done (archiwum leaves it: hold_status);
-    a failure keeps the last 200 lines of `gh run view --log-failed` in
-    .autopilot-local/<id>/ for the session; after the deploy step passed it runs the
-    command of the field cofnięcie and writes the message (what failed, which
-    version runs, that the migrations stay) as a stop line with `skutek:
-    łańcuch dalej`; cofnięcie: brak, a failed rollback or no run stop;
-14. krok-pr: `python3 <lab>/scripts/retro_pr.py <id>` ($AUTOPILOT_RETRO_PR), run
-    once whatever its exit code (a new run would repeat the paid sessions of
-    the author and the reviewer); the commit of master before it, its exit
-    code and its `P<n>: …` lines go to the field `krok_pr` of the state file;
-15. synchronizacja-po-pr: the rsync of step 10 for every skill folder of
-    `git diff --name-only <master before krok-pr>..HEAD -- skills/` (the PR
-    step pulls master with git pull --ff-only); skipped without one;
-16. zapis-przebiegu: the sections `## Wynik kroku PR` (one line per proposal
-    `- P<n> · stan: <state> · PR: #<n>|— · szczegóły: <rest of the line>`, a
-    proposal without a line of the PR step gets `stan: błąd`),
-    `## Zatrzymania po archiwum` (the lines of the field
-    zatrzymania_po_archiwum) and `## Pliki chronione` (the field
-    pliki_chronione, or `Brak.`) of context/przebiegi/<id>.md, written anew, a
-    commit of that file alone on master and `git push`; then the list at the
-    end of the run: one line per proposal of retro.md with its state, the
-    questions of the change decided by the agent (R15), the stops and
-    self-repairs (`<krok> — <powód> — <zrobiono> — <skutek>` per line of
-    `## Zatrzymania autopilota` of the archived change.md and of
-    `## Zatrzymania po archiwum`, or `brak`), the commands of the skill sync
-    before the archive and after the merges (or `brak`) and the protected
-    files the autopilot wrote, with the commit and the diff (or `brak`).
-
-Every step, also start, a skipped step and the sync, prints exactly
-`autopilot: krok <name>: początek, log <path>` and `autopilot: krok <name>:
-koniec (kod <n>), log <path>`; a skipped step has a log with one line of its
-reason. Logs are in .autopilot-local/<id>/<YYYYmmdd-HHMMSS>-<step>.jsonl
-(`claude -p`) or .log (commands), outside git. Besides them, the `claude -p` step implement (PHASE_STEPS)
-prints the phase line `autopilot: krok <name>: faza <n> z <total>: <heading>`
-after its start line and, every REFRESH seconds, whenever the phase of plan.md
-(the `faza` field below) differs from the one the step showed last (P18 of
-paczka-1-1); the human sees it in the output of the background command
-(`/tasks`).
-
-Every `claude -p` step runs with --model $AUTOPILOT_MODEL (default opus),
---permission-mode acceptEdits, --tools STEP_TOOLS (TOOLS and ToolSearch: the
-model sees no other tool, so no WebSearch, WebFetch or Monitor; the one
-exception, also in permission mode and allowed tools, is the step
-infrastruktura of the start, below),
---strict-mcp-config (no MCP server of ~/.claude.json or of the claude.ai
-connectors), --mcp-config <repo>/.mcp.json only when the repo of the change has
-that file (the model sees exactly its servers; without it no server at all),
-the explicit --allowedTools list (ALLOWED_TOOLS, which is TOOLS without the
-bare Write and Edit, and `mcp__<server>` for each key of mcpServers of
-.mcp.json), a new --session-id and its --max-turns, in the repo's top folder,
-with stdin from /dev/null and AUTOPILOT_KROK=<id> in its environment;
---setting-sources project,local (STEP_SOURCES: not the user's settings, whose
-sandbox exception would let a step run code outside the sandbox; impl-review
-F2 of paczka-1-1) with effortLevel high (STEP_EFFORT) in --settings; because
-that source does not load ~/.claude/skills, every step gets in --add-dir the
-folder STEP_SKILLS/<hash of the target> under trust_home(), whose
-.claude/skills links to config_dir()/skills, and neither that folder nor the target of the link is
-writable for the step (Edit rules, denyWrite; impl-review-3 F1), and never
-bypassPermissions, so the `deny` rules of the project's settings hold in the
-step. Before every step and every resume the autopilot stops it, without its
-process and with the kind zgoda, when .claude/settings.json or
-.claude/settings.local.json of the repo of the step, in HEAD or in the working
-tree, has a non-empty sandbox exception list, or its hooks, apiKeyHelper or
-awsCredentialExport differ from the main branch, or a file of the working tree
-cannot be read (sandbox_exception_problem, impl-review-3 F9; the reason starts
-with SANDBOX_EXCEPTION_REASON, or SETTINGS_RUN_REASON when only those keys
-changed, and tells the human what to do); in the start the step zabezpieczenia
-may hold in its working tree exactly the hooks the guardrails installer of the
-laboratory writes (guardrails_hooks, impl-review-6 F2).
-What a step may read and write (step_access, plan.md
-of wdrozenie, phase 9): it writes only in the project folder (acceptEdits
-approves the edits there; the bare Write and Edit, which write on every path of
-the computer, are not allowed; the allowed-tools of a skill would allow them in
-full for the whole step, so a PreToolUse hook in --settings, write_hook, refuses
-Write, Edit, MultiEdit and NotebookEdit outside the project folder, also in
-subagents, and blocks on its own error or timeout) and, through Bash in the
-sandbox, in the temporary folder; --settings turns the sandbox on (failIfUnavailable, no
-command outside it) with sandbox.filesystem.denyRead of the places with keys
-(KEY_FOLDERS, KEY_FILES, the paths of `## Dostępy` and of the field `tokeny
-logowania` of `## Wdrożenie` of every trusted record, key_places) and allowRead
-of git's own files in ~/.config/git (READ_AGAIN); --disallowedTools has trust_deny (Edit of the folder of the
-trusted fields outside the project, impl-review F1 of wdrozenie) and a Read
-rule for each place with keys. In the laboratory the step reads everything else
-(the bare Read, Glob and Grep: the research of a laboratory change reads the
-application repos). In an application repo it reads only its working folders:
-no bare Read, Glob and Grep, permissions.blockReadsOutsideWorkingDirectories,
-the laboratory in --add-dir (its docs) but not writable (Edit(/<lab>/**) in
---disallowedTools, the laboratory in denyWrite), and its access only from the
-trusted record dostep_krokow (D-336, impl-review-5 F1): the allowWrite entries
-of .claude/settings.json of the app in allowWrite and allowRead (the read block
-leaves out these entries of the repo), and its sandbox.network.allowedDomains
-that pass the domain check (the template of guardrails or a consent of the human
-in start.md; app_domains) in sandbox.network.allowedDomains, the others left out
-with one line before the step. The record comes from HEAD at the step start (in
-a run without it, once from the main branch), and only zabezpieczenia of the
-start within the default security, przygotowanie-wdrozenia after its commit and
---przyjmij of the human refresh it; HEAD that differs from it stops the step
-before its process with the kind zgoda, so a step that commits itself a domain,
-an allowWrite entry or a consent line (also through git plumbing past the
-protected file) gives the next step nothing; .claude/settings.local.json does
-not count. Without that file in the record (the
-start before zabezpieczenia) the default security the human approves in the
-gate question of the start instead: the allowed_domains of
-skills/guardrails/templates/guardrails.json of the laboratory in
-sandbox.network.allowedDomains and ~/.npm in allowWrite and allowRead
-(default_access), and the step szkielet stops before its process when the
-package_manager of tech-stack.md in HEAD is not npm, with what the human does.
-An app step's config_dir()/skills, when it exists, is a working folder too (--add-dir, allowRead), not
-writable (an Edit rule, denyWrite), and the rest of config_dir() is in denyRead; parts Claude Code opens itself (the
-saved large tool results, plugins/) stay readable (D-396). Before the step the
-autopilot stops it, without its process, when a settings file could widen it
-(allow_problems, only the repo's settings files, because the steps do not load
-the user's, impl-review-3 F9: an `allow` rule of a tool the step does not get
-in full, bare or with a path from //, ~ or with .., except the Read, Glob and
-Grep rules of the package folder, additionalDirectories, disableAllHooks, which
-would switch the write hook off; A5, D-252), when a trusted file is not a
-JSON object or cannot be read, and when an allowWrite entry of the app lies in
-a place with keys or in the folder of the trusted fields, or holds one (also
-through a link, and in any case on macOS). The sandbox of every step also has
-the folder of the trusted fields in denyWrite. A
-.mcp.json that is unreadable, not JSON, not a JSON object or without an object
-mcpServers stops the step before its process starts, with the reason
-`niepoprawny .mcp.json: <why>`. `claude -p` exits 0 also on a denied permission, an
-unanswered question or a skill's STOP, so a step is judged by its log and the
-change's files, in this order: exit code not 0; no `result` event, or its
-subtype is not success (or is_error); a new entry in `## Wymaga Twojej
-decyzji` of change.md (against the snapshot taken at the step's first start);
-the step's expected trace is missing (research:
-research.md; plan: plan.md and a status at least planned; plan-review and
-impl-review: the highest-numbered full report of the series in reviews/ is
-newer than in the snapshot and its verdict is not RETHINK / REJECTED;
-implement: a status at least implemented; archiwum: the archived change.md
-with status archived). Statuses compare by their order in STATUS_ORDER. The
-denied tool calls of the last `result` (permission_denials) are judged apart:
-with any other reason they join the reason to stop; when they are the only
-reason (the step's files are complete), the step is accepted and the chain
-goes on (P11), with a stop line `zrobiono: przyjęcie`.
-
-State file .autopilot-local/<id>/stan.json (written atomically: a temporary
-file and os.replace), at the start and the end of every step, at a stop and
-every REFRESH seconds during a `claude -p` step. Fields: krok, faza
-(`faza <n> z <total>: <heading>` of the `### Phase N: …` above the first
-`- [ ]` of `## Progress` in plan.md, the last phase when every row is checked,
-or null; phase_progress), ostatnia_czynnosc (the name and the target of the last tool_use of the
-step's log, or the running command), czas (ISO 8601 with the zone), log, pid,
-pid_kroku, sesja, migawka, zatrzymanie, przerwanie, zrobione, przyjete,
-nastepny, procesy, synchronizacja, zatrzymania_po_archiwum, krok_pr,
-sekcje_startu (step 1, plan.md of wdrozenie), and the optional zgoda_scalenia
-(no field: no consent; steps 7 and 11b), pliki_chronione (step 7) and
-glowna_przed_scaleniem (step 12). The trusted fields sekcje_startu,
-zgoda_scalenia and dostep_krokow (TRUSTED) are not written to stan.json: they live in trust_file
-outside the project, and the same keys in stan.json are ignored (PC5 of
-wdrozenie). A step is complete
-only when it is in `zrobione`; a step goes there only once it is accepted. A
-step that is not there (killed, interrupted by a signal, stopped) runs again
-from its start, with the snapshot (`migawka`) saved at its first start and
-cleared only on acceptance. A change without a state file starts at start.
-
-Stops: a step that fails ends the invocation with exit code 1, the line
-`autopilot: krok <name>: zatrzymanie. <reason>`, the commands to go on (for a
-`claude -p` step with a session `--odpowiedz`; for every step `--przyjmij`,
-except a stop on the Manual rows (none), on the merge and on a consent or a
-domain of step 7 (`--przyjmij` after the consent in change.md); last the
-command to run it again) and the reason in the field `zatrzymanie` of the
-state file (with `rodzaj` for the stops of steps 7 and 11).
-No interactive `claude` session is ever opened.
-
-Trace of the stops (P12): before that, a stop of a step up to archiwum adds one
-line to the section `## Zatrzymania autopilota` of
-context/changes/<id>/change.md (made at the end of the file when missing) and
-commits the file by its path:
-`- czas: <YYYY-MM-DD HH:MM> · krok: <name> · powód: <reason> · zrobiono: — ·
-skutek: —`. The reason is one line (new lines as ` / `, ` · ` as `; `, at most
-REASON_CHARS characters; the whole reason is in the state file); `zrobiono`
-and `skutek` are filled in later by the main session, except for a step
-accepted on denied tool calls only (`zrobiono: przyjęcie`, `skutek: krok
-przyjęty, łańcuch dalej`). The line is not committed when the current branch is
-not <id>. A stop of a step after archiwum (checkout-master, merge, push,
-wynik-wdrozenia, krok-pr, synchronizacja-po-pr, zapis-przebiegu), and of
-archiwum once the
-folder moved, adds the same line to the field zatrzymania_po_archiwum of the
-state file instead, so the tree on master stays clean for git pull --ff-only of
-the PR step; zapis-przebiegu writes those lines into `## Zatrzymania po
-archiwum` of context/przebiegi/<id>.md. Nothing goes into context/archive/.
-The autopilot never writes `## Interwencje`.
-
-Options, one at a time; `--odpowiedz` and `--przyjmij` only for a change whose
-state file has `zatrzymanie` (else exit code 2):
-- `--odpowiedz TEKST`: resume the session of the stopped `claude -p` step
-  (field `sesja`) with the human's answer: `claude -p --resume <sesja> TEKST`
-  with the step's --model, --setting-sources, --permission-mode, --tools, --strict-mcp-config,
-  --mcp-config (when .mcp.json exists), --add-dir, --settings, --disallowedTools, --allowedTools, --max-turns
-  and output flags (the same bounds of reading and writing as the step), log <stamp>-<step>-wznowienie.jsonl,
-  judged as a usual run
-  against the snapshot of the step's first start; then the chain as after a
-  usual step. A stopped command step has no session: exit code 2 with the
-  command to run it again.
-- `--przyjmij`: the human accepts the stopped step without a new run: it goes
-  to `zrobione` and to `przyjete`, `zatrzymanie` is cleared and the chain runs
-  to the next boundary. After a stop of step 11 with `rodzaj: manual` it is
-  refused (exit code 2, tick the rows and run again); after `rodzaj:
-  scalenie` it writes zgoda_scalenia and runs archiwum (step 11b); after a
-  stop of step 7 with `rodzaj: zgoda` or `rodzaj: domena` it needs the
-  `zrobiono` field of the committed stop line, refreshes sekcje_startu from
-  HEAD and runs the step again.
-- `--krok`: read only, while another invocation runs in the background (the
-  main session runs it once after every start in the background,
-  docs/sesja-glowna.md). It takes no lock, writes nothing and does not make
-  .autopilot-local/<id>/. It reads the state file every KROK_POLL seconds, at
-  most KROK_WAIT (30) seconds, until it shows a running step: a living `pid`,
-  `krok` outside `zrobione`, and the same `krok` and `log` (both set) for at
-  least KROK_SETTLE (2) seconds, so the short step start is skipped; a missing
-  or (for a moment) unreadable state file means nothing runs yet. Then it
-  prints that step's start line, `autopilot: krok <name>: początek, log
-  <path>`, and exits 0. Without such a step it prints one line `autopilot: brak
-  trwającego kroku …` with the reason and exits 1, at once when the invocation
-  it saw alive has ended, else after KROK_WAIT seconds; a state file still
-  unreadable after KROK_WAIT seconds exits 2. Known narrow risks: after a new
-  run of a stopped synchronizacja-po-pr, a slow `git fetch` before its start
-  line may make it print the old line of the stopped step; after a run killed
-  with SIGKILL, whose `pid` stays in the state file, a reused pid makes it
-  print the dead run's line while the new invocation refuses with exit code 2.
-
-Costs of the steps (P23): after every `claude -p` run (accepted or stopped)
-the autopilot writes one row per session into the table `| Krok | Sesja |
-Początek | Czas (s) | Model | Wejście | Wyjście | Odczyt cache | Zapis cache |
-Największy kontekst | Koszt USD |` and commits the file by its path (on branch
-<id> only): for the steps before archiwum context/changes/<id>/koszty-krokow.md
-(title `# Koszty kroków: <id>`), for archiwum the section `## Koszty kroków` of
-context/przebiegi/<id>.md (title `# Przebieg autopilota: <id>`), because the
-change folder is in the immutable archive by then. A resumed session replaces
-its row, a new run of a step adds one. The time is the autopilot's monotonic
-clock around each process, summed per session in the field `procesy` of the
-state file (with the start and the logs of the session); the model is `model`
-of `system/init`; the tokens (sum over the models of `modelUsage`) and the cost
-(`total_cost_usd`) come from the last `result` of the last process of the
-session, because they grow over the results of one session and over a resume;
-the largest context is the maximum of input_tokens + cache_read_input_tokens +
-cache_creation_input_tokens over the `assistant` events of the main session
-(`parent_tool_use_id` null). A missing value is `—`. Raw logs stay in
-.autopilot-local/ (D-006).
-
-Every step process (`claude -p` and the commands of a command step) runs in
-its own process group, and its pid is `pid_kroku` of the state file. SIGTERM,
-SIGHUP and SIGINT end that group (SIGTERM, after KILL_WAIT seconds SIGKILL),
-write `przerwanie: <signal>` and exit 1; that is not a stop (no `zatrzymanie`),
-and the next invocation runs the step again (krok-pr keeps the master commit of
-its first start).
-
-Exit codes: 0 at a boundary or at the end of the run (the field `nastepny` of
-the state file and the last line of the output tell them apart), 1 at a stop or
-an interruption, 2 when the autopilot does not start: bad arguments, a living
-other run (`pid` or `pid_kroku` of the state file, or the lock .autopilot-local/
-<id>/stan.lock held by another invocation), AUTOPILOT_KROK set in the
-environment (a call from a `claude -p` step), no git repository, an
-unreadable state file. `--krok` exits 0 with the start line of the running
-step, 1 without a running step (after KROK_WAIT seconds, or at once when the
-invocation it saw alive has ended), 2 for bad arguments, AUTOPILOT_KROK set,
-no git repository or a state file unreadable for KROK_WAIT seconds (a living
-run is what it waits for, not a reason to refuse).
-
-The start of an application project (plan.md of start-projektu, phase 4):
-
     python3 <lab>/scripts/autopilot.py --start [--odpowiedz TEKST | --krok]
 
-leads a second chain, START_CHAIN, in the repo of the application, by the same
-boundaries, step lines, state file, --krok, --odpowiedz, costs and stops as the
-chain of a change. It takes no change id: its id is START_ID (state file
-.autopilot-local/start-projektu/stan.json, AUTOPILOT_KROK=start-projektu in the
-steps). It does not start (exit code 2) in the laboratory, in a repo without
-the marker .fabryka in its top folder, and with --przyjmij after any stop but
-one of the kind zgoda on the access of the steps (D-336: --start --przyjmij
-after the consent in the stop line of start.md refreshes dostep_krokow and runs
-the step again): the only other way to go on after a stop is --start (or
---start --odpowiedz for a stopped `claude -p` step with a session). The steps,
-in order:
-start (command: the current branch is the main branch, git ignores
-.autopilot-local/, context/ exists, context/foundation/start.md is committed
-with a non-empty `## Opis właściciela` and the lines `kto: człowiek · zgoda:
-github` and `kto: człowiek · zgoda: zabezpieczenia` in `## Zgody`,
-context/foundation/shape-notes.md is committed with context_type: greenfield
-(the session shapes with the human through `/10x-shape` before the start), the
-working tree is clean); prd (`/10x-prd`), technologia
-(`/10x-tech-stack-selector`), infrastruktura (`/10x-infra-research`), przeglad
-(no skill: a fresh session compares PRD, technology and infrastructure with
-the owner's description and shape-notes.md and writes `## Decyzje bez podstawy` of
-start.md), wymagania (no skill: a fresh session checks the requirements of the
-technology from tech-stack.md on this computer read-only, repairs only what the
-self-repair rule allows, writes `## Wymagania komputera` and `## Sprawdzalność
-scenariusza` of start.md, every unmet requirement also in `## Do decyzji na
-posiedzeniu`, and a sentence `Sprawdzenie: jedno polecenie …` in prd.md at a
-scenario step that needs data the app does not show), akceptacja (command, gate of the human: the committed start.md has
-a line `kto: człowiek · akceptacja: …` in `## Akceptacja` and the tree is
-clean, else a stop with rodzaj: akceptacja), szkielet (`/10x-bootstrapper`, plus
-a CI workflow from the CI template of the guardrails, run on a push of every
-branch, the command of `## Testy w CI` and one command that runs the app
-locally, in `## Uruchomienie lokalne` of CLAUDE.md and in README.md),
-zabezpieczenia (`/guardrails`), domeny (command, gate of the human:
-allowed_domains of .claude/guardrails.json and sandbox.network.allowedDomains
-of .claude/settings.json and .claude/settings.local.json minus the ones of
-<lab>/skills/guardrails/templates/guardrails.json minus the hosts of the lines
-`kto: człowiek · zgoda: domena <host>` of the committed start.md; any left
-stop with rodzaj: domena), roadmapa (`/10x-roadmap`; the last line
-`PIERWSZY_KAWALEK: <id>` of its answer goes to `## Pierwszy kawałek` of
-start.md, else `- brak w odpowiedzi kroku roadmapa`; every item gets `- **Potrzebuje:**`
-and a matter put off that must be done before use or deployment goes to the
-Prerequisites of the item it blocks), plan-testow (`/10x-test-plan`, ends after
-writing context/foundation/test-plan.md, D-304; with the access of the steps of
-the slices it also runs their programs and writes `## Programy kroków` in
-start.md), github (command: without
-origin `gh repo create <folder name> --private --source . --remote origin
---push`, else `git push -u origin <main branch>`), lista (command, I-11: the
-committed start.md has the section `## Lista końcowa` the session writes after
-github, with a line `Żeby cała roadmapa poszła bez ciebie, przygotuj:`, then
-`git push -u origin <main branch>`, so the last push runs outside
-the sandbox of the app; else a stop with rodzaj: lista). Every prompt
-(START_CLAUDE_STEPS) has the request to the skill, START_NOTE (nobody answers;
-every question of the skill is decided by the step's agent from the owner's
-description and shape-notes.md, best for the owner's intent and keeping to
-prd.md and the principles, and written as a line `rozstrzygnął: agent` in
-`## Pytania do człowieka` of start.md; the human accepts it all at the
-acceptance sitting; a decision on a gate of the human, as in PLAN_NOTE, is not
-taken: the answer ends with a line `PYTANIE_DO_CZLOWIEKA: <question>`; a matter
-put off goes to the limitation register context/foundation/limitations.md of
-the app, which roadmapa reads with the other deferred matters and puts into the
-Prerequisites of the item it blocks when it must be done before use or deployment; no commit), the <fabryka>
-sentence, FACTS_NOTE and STATE_NOTE (step_tail). A
-`claude -p` step of the start is judged by its log, then by that question (a stop with rodzaj: pytanie,
-resumed with --start --odpowiedz; plain --start runs the step again), then by
-its trace (start_trace: prd.md with the first version scenario,
-tech-stack.md, infrastructure.md, a line in `## Decyzje bez podstawy`, a line
-in `## Wymagania komputera` and in `## Sprawdzalność scenariusza`,
-package.json and bootstrap-verification without AGENTS.md and *.scaffold, with a
-CI workflow with push and `## Uruchomienie lokalne` with a command in CLAUDE.md,
-.claude/settings.json, .claude/guardrails.json and `## Verify` in CLAUDE.md,
-roadmap.md with `- **Potrzebuje:**` in every item with `- **Change ID:**`,
-test-plan.md and a line in `## Programy kroków` without `niedostępne w
-piaskownicy kroku`); its snapshot is empty and `## Wymaga Twojej decyzji` is not read.
-The process of a step runs with its own git identity (<step>@STEP_EMAIL_DOMAIN
-as author and committer), and a commit with that identity in the history of
-HEAD stops the step before every run or resume and after its run, so an
-interrupted invocation forgets nothing. After an accepted step other than
-start, akceptacja, domeny, github and lista comes the commit of the step: `git add -A`
-and `feat(start): krok <name>` on the main branch; a changed section of the
-human in start.md (`## Opis właściciela`, `## Zgody`,
-`## Akceptacja`), a changed context/foundation/shape-notes.md, a secret file to
-add (.env, .env.*, .env-*, .env_*, .dev.vars, .dev.vars.*, in any case, but
-*.example), .autopilot-local/ not ignored, or after infrastruktura a changed
-file (also an ignored one, against the ignored files right before its run)
-other than infrastructure.md and start.md, stops
-without the commit, and the step stays out of `zrobione`. On --start after a stop of a
-`claude -p` step whose trace now passes, that step does not run again and goes
-straight to its commit. The step infrastruktura gets --tools STEP_TOOLS without
-Bash and with WebSearch and WebFetch, --allowedTools the same list without
-ToolSearch, without the bare Read, Glob and Grep (the start runs in an
-application repo; dontAsk still lets it read its folder) and with Write and Edit
-only as Edit(./<path>) of infrastructure.md and start.md, and --permission-mode
-dontAsk, so a write to any other file is denied (D-285); every other step of
-both chains gets STEP_TOOLS and acceptEdits, and every step the bounds of
-step_access of an application repo. The trace
-goes to start.md (title `# Start projektu: <folder name>`): the cost rows to
-`## Koszty kroków` (committed with the step), the stop lines to `## Zatrzymania
-autopilota` (committed by its path on the main branch, but left uncommitted
-while a section of the human differs from HEAD), the questions of the
-boundary line from `## Pytania do człowieka`. Command hints are
-`python3 <lab>/scripts/autopilot.py --start …`.
+How the main session runs it, reads its state and talks to the human: docs/sesja-glowna.md; the start of an
+application project (--start, START_CHAIN): docs/start-projektu.md. Each step is described at its function.
 
+Steps, in order: start, research, plan, plan-review, implement, impl-review, przygotowanie-wdrozenia
+(prep_attempt), testy-fabryki, wynik-testow, synchronizacja-skilli, archiwum, checkout-master, merge, push,
+wynik-wdrozenia (deploy_result_attempt), zapis-przebiegu. One invocation runs to the end of the nearest
+`claude -p` step and exits. checkout-master keeps its name; it checks out the main branch of the repo (D-253).
+
+State file .autopilot-local/<id>/stan.json: new_state lists its fields, later steps add pliki_chronione and
+glowna_przed_scaleniem. The trusted fields (TRUSTED) live outside the project (trust_file), where no step can
+write; the same keys in stan.json are ignored. Exit codes: 0 at a boundary or at the end
+of the run (the field `nastepny` tells them apart), 1 at a stop or an interruption by a signal, 2 when the
+autopilot does not start.
+
+What the code does not say on its own:
+- `claude -p` exits 0 also on a denied permission, an unanswered question or a skill's STOP, so a step is
+  judged by its log and the change's files (judge_step), never by its exit code alone.
+- No interactive `claude` session is ever opened and stdin is never read: stdin and stdout may be pipes or
+  /dev/null.
+- A laboratory step keeps the bare Read, Glob and Grep, because the research of a laboratory change reads the
+  application repos; an application step reads only its working folders.
+- In an application repo config_dir() is in denyRead, but the parts Claude Code opens itself (the saved large
+  tool results, plugins/) stay readable (D-396).
+- Known narrow risk of --krok: after a run killed with SIGKILL, whose `pid` stays in the state file, a reused
+  pid makes it print the dead run's line while the new invocation refuses with exit code 2.
 """
 
 import argparse
@@ -524,15 +51,14 @@ import time
 import uuid
 
 import pomiar
-import retro_pr
 
 CLAUDE = "claude"
-# The tools a step sees. They are not all allowed in full (plan.md of wdrozenie, phase 9): a bare Write or Edit in
+# The tools a step sees. They are not all allowed in full: a bare Write or Edit in
 # --allowedTools writes on every path of the computer, so ALLOWED_TOOLS has neither, and the permission mode acceptEdits
 # approves the writes in the project folder only; in an application repo the bare Read, Glob and Grep go too
 # (READ_TOOLS, Run.tools) and reads outside the working folders are blocked (step_access). The tools a step sees but
 # does not get in full (not_fully_allowed) are the ones an `allow` rule of the settings could widen, so allow_problems
-# stops the step on such a rule first (A5, D-252).
+# stops the step on such a rule first (D-252).
 TOOLS = "Read,Glob,Grep,Write,Edit,Bash,Agent,Task,TaskCreate,TaskUpdate,TaskList,TaskGet,Skill"
 WRITE_TOOLS = ("Write", "Edit")
 READ_TOOLS = ("Read", "Glob", "Grep")
@@ -540,7 +66,7 @@ READ_TOOLS = ("Read", "Glob", "Grep")
 # permission); --allowedTools: ALLOWED_TOOLS and `mcp__<server>` for each server of the repo's .mcp.json.
 STEP_TOOLS = TOOLS + ",ToolSearch"
 ALLOWED_TOOLS = ",".join(name for name in TOOLS.split(",") if name not in WRITE_TOOLS)
-# The places with keys no `claude -p` step reads (decision of the human, change.md of wdrozenie, krok: implement):
+# The places with keys no `claude -p` step reads:
 # folders and files, as a permission rule (Read(<place>/**) or Read(<place>)) and in sandbox.filesystem.denyRead.
 # The paths of ## Dostępy and of the field `tokeny logowania` of ## Wdrożenie of every trusted record join them
 # (key_places). READ_AGAIN opens git's own files inside ~/.config again (its ignore, config and attributes, not the
@@ -555,10 +81,10 @@ READ_AGAIN = ("~/.config/git/ignore", "~/.config/git/config", "~/.config/git/att
 PACKAGE_READ_RULES = ("Read", "Glob", "Grep")
 # The MCP servers of a step: only the ones of .mcp.json in the top folder of the repo of the change.
 MCP_FILE = ".mcp.json"
-# The model of every `claude -p` step: $AUTOPILOT_MODEL, else DEFAULT_MODEL (A16).
+# The model of every `claude -p` step: $AUTOPILOT_MODEL, else DEFAULT_MODEL.
 MODEL = "AUTOPILOT_MODEL"
 DEFAULT_MODEL = "opus"
-# A question line's field krok of the step archiwum may also be the skill's name (D-217, plan.md „Decyzje planu”).
+# A question line's field krok of the step archiwum may also be the skill's name (D-217).
 STEP_ALIASES = {"archiwum": ("archiwum", "archive")}
 QUESTION_CHARS = 80
 LOG_DIR = ".autopilot-local"
@@ -569,18 +95,18 @@ LOCK = "stan.lock"
 GUARD = "AUTOPILOT_KROK"
 # Seconds between the state refreshes during a `claude -p` step, and before kill after terminate.
 REFRESH = 30
-# Steps that print the phase line `krok <name>: faza <n> z <total>: <heading>` (P18 of paczka-1-1).
+# Steps that print the phase line `krok <name>: faza <n> z <total>: <heading>`.
 PHASE_STEPS = ("implement",)
 KILL_WAIT = 10
-# --krok (plan.md of poprawki-skilli, „Decyzje planu”): at most KROK_WAIT seconds of waiting for a running step,
+# --krok: at most KROK_WAIT seconds of waiting for a running step,
 # which must keep the same krok and log for KROK_SETTLE seconds (so the short command step start is not shown);
 # the state file is read every KROK_POLL seconds. Read at call time, so a test may replace them.
 KROK_WAIT = 30
 KROK_SETTLE = 2
 KROK_POLL = 0.2
-# The laboratory root (plan.md of autopilot-repo-aplikacji, „Decyzje planu”): the folder above scripts/ of this file,
+# The laboratory root: the folder above scripts/ of this file,
 # replaced by $AUTOPILOT_LAB (for the tests). The files of the laboratory (check_intent.py, run_evals.sh,
-# retro_pr.py, skills/, the docs of PLAN_NOTE) come from it; context/, .autopilot-local/, the branch and the commits
+# skills/, the docs of PLAN_NOTE) come from it; context/, .autopilot-local/, the branch and the commits
 # from the repo the autopilot runs in. A repo other than the laboratory is an application repo.
 LAB = "AUTOPILOT_LAB"
 AUTOPILOT = "scripts/autopilot.py"
@@ -592,12 +118,10 @@ APP_SKIPS = {
     "testy-fabryki": "testy fabryki sprawdzają tylko pliki repo fabryki.",
     "wynik-testow": "bez testów fabryki nie ma raportów reviews/evals-*.md.",
     "synchronizacja-skilli": "skille do folderu skilli Claude Code synchronizuje tylko repo fabryki.",
-    "krok-pr": "propozycje retrospektywy czekają na człowieka na liście końca przebiegu.",
-    "synchronizacja-po-pr": "bez kroku PR nie ma scaleń skilli do synchronizacji.",
 }
-# The checks before the step archiwum (plan.md of autopilot-repo-aplikacji, phase 3), in this order: the Manual rows
-# of plan.md (validate_change.py of the laboratory, rule 7; A12, A13), then the files of the branch that widen the
-# steps (.mcp.json, .claude/settings*.json; A11, A22, D-254). The kind of such a stop goes to the key `rodzaj` of
+# The checks before the step archiwum, in this order: the Manual rows
+# of plan.md (validate_change.py of the laboratory, rule 7), then the files of the branch that widen the
+# steps (.mcp.json, .claude/settings*.json, D-254). The kind of such a stop goes to the key `rodzaj` of
 # the field zatrzymanie; the human's consent to the merge goes to the field zgoda_scalenia of the state file.
 VALIDATE = "skills/10x-impl-review/scripts/validate_change.py"
 MERGE_FILES = (MCP_FILE, ".claude/settings*.json")
@@ -607,10 +131,9 @@ CONSENT = "zgoda_scalenia"
 DELETED = "usunięty"
 APP_SKIPPED = "pominięty, repo aplikacji: "
 APP_PROPOSAL = "czeka na człowieka (repo aplikacji: przenieś propozycję do zmiany w repo fabryki)"
-APP_PR_RESULT = "czeka na człowieka — krok PR pominięty, repo aplikacji"
 ESCALATIONS = "## Wymaga Twojej decyzji"
 PROGRESS = "## Progress"
-# The trace of the stops in change.md (D-198) and its line (plan.md, „Decyzje planu”).
+# The trace of the stops in change.md (D-198) and its line.
 STOPS = "## Zatrzymania autopilota"
 REASON_CHARS = 300
 FIELD_SEP = " · "
@@ -625,6 +148,8 @@ SERIES = {
     "impl-review": re.compile(r"^impl-review(?:-(\d+))?\.md$"),
 }
 STOP_VERDICT = {"plan-review": "RETHINK", "impl-review": "REJECTED"}
+# Review rounds over the whole change: with this many reports of a series, the step writes no new one.
+REVIEW_ROUNDS = 3
 # The statuses of a change in their order (10x-plan-review, 10x-goal-implement, 10x-impl-review, 10x-archive).
 STATUS_ORDER = ("new", "preparing", "planned", "plan_reviewed", "implementing", "implemented", "impl_reviewed",
                 "archived")
@@ -652,9 +177,8 @@ EVALS_FOR = (
     ("skills/intent/", ("intent",)),
     ("skills/guardrails/", ("guardrails",)),
     ("scripts/e2e_guardrails.sh", ("guardrails",)),
-    # The chain test runs the autopilot's prompts and the PR step of the branch.
+    # The chain test runs the autopilot's prompts.
     ("scripts/autopilot.py", ("chain",)),
-    ("scripts/retro_pr.py", ("chain",)),
 )
 # Files of the factory tests themselves: a change of any of them runs --quick.
 EVALS_FILES = ("scripts/run_evals.sh", "scripts/eval_*.sh", "scripts/evallib.py", "scripts/create_sandbox.sh",
@@ -663,7 +187,7 @@ EVALS_FILES = ("scripts/run_evals.sh", "scripts/eval_*.sh", "scripts/evallib.py"
 EVALS_ORDER = ("guardrails", "triage", "chain", "reviewer", "intent")
 SYNC_STEP = "synchronizacja-skilli"
 NO_FOLDER = "pominięty: brak folderu w repo"
-# The step after impl-review (plan.md of wdrozenie, phase 4): it writes the protected files of the app and the sandbox
+# The step after impl-review: it writes the protected files of the app and the sandbox
 # domains the human agreed to, checks the secrets of the CI files and passes the secrets on, outside the sandbox of the
 # app and before the change merges. It knows no platform by name: what it runs comes from ## Wdrożenie and ## Dostępy
 # of CLAUDE.md and ## Zgody of change.md, in the version the step start recorded (field sekcje_startu).
@@ -673,14 +197,14 @@ PREP_STEP = "przygotowanie-wdrozenia"
 # sekcje_startu and, in an application repo, dostep_krokow from HEAD and runs the step again.
 KIND_CONSENT = "zgoda"
 START_SECTIONS = "sekcje_startu"
-# The fields the steps of the deployment trust (impl-review F1 of wdrozenie): zgoda_scalenia and sekcje_startu live
+# The fields the steps of the deployment trust: zgoda_scalenia and sekcje_startu live
 # outside the project folder, in <TRUST_HOME>/<hash of the repo path>/<id>.json, and not in stan.json. A `claude -p`
 # step cannot write there: the sandbox keeps Bash in the project, and the rule of trust_deny on every step denies the
-# tools Edit and Write (context/changes/wdrozenie/dowod-stanu-poza-repo.md). $AUTOPILOT_STATE_HOME replaces the folder
+# tools Edit and Write. $AUTOPILOT_STATE_HOME replaces the folder
 # (tests). A value of these fields in stan.json is ignored.
 TRUST_ENV = "AUTOPILOT_STATE_HOME"
 TRUST_HOME = "~/.local/state/fabryka"
-# The record of the access of the `claude -p` steps of an application repo (D-336, impl-review-5 F1 of wdrozenie):
+# The record of the access of the `claude -p` steps of an application repo (D-336):
 # allowWrite and allowedDomains of .claude/settings.json and the consents to domains of start.md, from the commit
 # the human agreed to. A step gets its access only from it; HEAD that differs stops the step before its process with
 # the kind zgoda. Only the step start, the step zabezpieczenia of the start within the default security,
@@ -688,7 +212,7 @@ TRUST_HOME = "~/.local/state/fabryka"
 ACCESS_RECORD = "dostep_krokow"
 ACCESS_REASON = "dostęp kroków claude -p różni się od zapisu"
 # The access in HEAD that a stop on the access of the steps showed, as it was at the stop (access_problem): the only
-# thing --przyjmij may take into dostep_krokow (impl-review-6 F1 and F6 of wdrozenie, decision of the human).
+# thing --przyjmij may take into dostep_krokow.
 ACCESS_SHOWN = "dostep_w_zatrzymaniu"
 TRUSTED = (CONSENT, START_SECTIONS, ACCESS_RECORD, ACCESS_SHOWN)
 ACCESS = "## Dostępy"
@@ -706,20 +230,20 @@ PROTECTED_FIELD = "pliki_chronione"
 PROTECTED_SECTION = "## Pliki chronione"
 WORKFLOWS = ".github/workflows/"
 NOTHING_TO_WRITE = "nic do wpisania"
-# CI of the branch (paczka-1-1, D-428): a workflow of the app with this line (the CI template of the guardrails,
+# CI of the branch (D-428): a workflow of the app with this line (the CI template of the guardrails,
 # CI_TEMPLATE) runs on a push of every branch, so przygotowanie-wdrozenia pushes the branch of the change and waits
 # for that run of HEAD before the archive and the merge; the tests with local services (## Testy w CI of CLAUDE.md,
 # not in verify) run there and not in a step. Without the line (the laboratory, apps of paczka 1.0) one log line.
 BRANCH_CI_MARK = "# autopilot: ci-galezi"
 NO_BRANCH_CI = "brak CI gałęzi"
 BRANCH_CI_PASSED = "CI gałęzi przeszło"
-# The commit whose branch CI passed (state field, impl-review F4 of paczka-1-1): when the branch ends on another commit
-# at the merge, the CI of the branch runs again on that commit (impl-review-2 F5, merge_attempt).
+# The commit whose branch CI passed (state field): when the branch ends on another commit
+# at the merge, the CI of the branch runs again on that commit (merge_attempt).
 BRANCH_CI_SHA = "ci_galezi_commit"
 CI_TEMPLATE = "skills/guardrails/templates/ci.yml"
 CI_TESTS = "## Testy w CI"
 SECRET_OUTPUT = "wyjście pominięte: może zawierać sekret"
-# The step after the push (plan.md of wdrozenie, phase 5): in a repo with ## Wdrożenie in CLAUDE.md of the main branch
+# The step after the push: in a repo with ## Wdrożenie in CLAUDE.md of the main branch
 # it waits for the CI run of the pushed commit and, when it fails after the deploy step passed, rolls the code back with
 # the command of the field cofnięcie. The program gh is $AUTOPILOT_GH, else gh from PATH. No platform by name.
 RESULT_STEP = "wynik-wdrozenia"
@@ -752,49 +276,31 @@ DEPLOY_EFFECT = "łańcuch dalej"
 ROADMAP = "context/foundation/roadmap.md"
 # The stop line of a failed deploy holds the whole message for the human (zapis-przebiegu and the list at the end).
 DEPLOY_REASON_CHARS = 1500
-# The retrospective PR step after the push: run once, without a new run.
-RETRO_PR = "scripts/retro_pr.py"
-RETRO_PR_STEP = "krok-pr"
-# The tail after the PR step (P21, P22): the sync of the skills its merges changed, and the record of the run.
-SYNC_AFTER_PR = "synchronizacja-po-pr"
+# The last step after the push: the record of the run.
 RUN_RECORD = "zapis-przebiegu"
-PR_LINE = re.compile(r"^P(\d+): (.+?)\s*$")
-# The sections of context/przebiegi/<id>.md the record of the run writes (plan.md, „Decyzje planu”).
-PR_RESULT = "## Wynik kroku PR"
+# The sections of context/przebiegi/<id>.md the record of the run writes.
 STOPS_AFTER = "## Zatrzymania po archiwum"
-# The states a `P<n>: …` line of retro_pr.py starts with, longest match first; the PR number of a line.
-PR_STATES = ("scalony", "czeka na potwierdzenie odrzucenia", "czeka na decyzję człowieka", "czeka na człowieka",
-             "pominięty", "błąd")
-PR_NUMBER = re.compile(r"\(PR #(\d+)\)|/pull/(\d+)")
 NOTHING = "Brak."
-SKIPPED_STATE = re.compile(r"stan (\w+)")
 FIELD = r"^- \*\*{name}\*\*:[ \t]*(.*?)[ \t]*$"
+# The proposals of retro.md (skills/retro/references/retro-format.md): `#### P<n>. <title>` under `## Propozycje`.
+PROPOSAL = re.compile(r"^#### P(\d+)\. (.+)$")
 
 RESEARCH_QUESTION = ("Co w repozytorium istnieje, a czego brakuje, żeby spełnić oczekiwany efekt "
                      "i kryteria akceptacji z context/changes/{id}/change.md?")
 RISK_LINE = re.compile(r"^\*\*Ryzyko\.\*\*.*$", re.M)
 SHORT_PATH = "pominięty, krótsza ścieżka: ryzyko niskie"
-# The seven gates of „Kiedy pytać człowieka” in CLAUDE.md, in one place (P1 of the retro of start-projektu, D-298):
-# PLAN_NOTE_TEMPLATE and START_NOTE_TEMPLATE put it in before their .format, so {lab} is filled in both.
-GATES_TEMPLATE = (
-    "(1) zmienia intencję albo kryteria akceptacji w change.md "
-    "zmiany; (2) dotyka ścieżki z {lab}docs/zgoda-czlowieka.md (sekcja ## Ścieżki) albo usuwa krok łańcucha "
-    "(sekcja ## Usunięcie kroku łańcucha tego pliku), czyli dotyka kryteriów przeglądu, testów skilli, "
-    "polityki triage'u albo samej listy bramek, albo usuwa krok łańcucha; (3) wymaga płatnego przebiegu albo "
-    "wysyłki danych; (4) coś upublicznia; (5) zmienia ustawienia globalne (~/.claude); (6) prowadzi do "
-    "operacji trudnej do cofnięcia (usunięcie danych, przepisanie historii gita, zmiana poza repozytorium "
-    "zmiany); (7) polityka triage'u każe rozstrzygać człowiekowi"
-)
 PLAN_NOTE_TEMPLATE = (
     "Przebieg autopilota (claude -p): nikt nie odpowie w trakcie tego kroku. Plan bierze frame.md i research.md "
     "zmiany, gdy istnieją; gdy ich nie ma, sam czyta kod i change.md. Każde pytanie planu rozstrzygnij sam "
     "według rekomendacji z tych plików albo z kodu i zapisz je w ## Decyzje planu z jednym zdaniem "
     "uzasadnienia. Każde pytanie z „Open Questions” research.md (gdy istnieje), które rozstrzygasz sam, "
     "zapisz też jedną linią w ## Pytania do człowieka w change.md (format z punktu 6 "
-    "{lab}docs/zasady-budowy.md) z krok: plan, wybór: rekomendacja i rozstrzygnął: agent. Wyjątek to pytanie, które trafia na jedną z siedmiu bramek "
-    "z „Kiedy pytać człowieka” w {lab}CLAUDE.md: " + GATES_TEMPLATE + ". Zanim zadasz takie pytanie, porównaj "
-    "wszystkie pliki, które plan zmienia albo uruchamia, z sekcjami ## Ścieżki i ## Płatne testy skilli "
-    "w {lab}docs/zgoda-czlowieka.md, a plan z płatnymi przebiegami i płatnymi usługami. Przy takim pytaniu nie "
+    "{lab}docs/zasady-budowy.md) z krok: plan, wybór: rekomendacja i rozstrzygnął: agent. Wyjątek to pytanie, które trafia "
+    "na jedną z bramek z „Kiedy pytać człowieka” w {lab}CLAUDE.md (przeczytaj tę sekcję przed decyzją). Zanim "
+    "zadasz takie pytanie, porównaj wszystkie pliki, które plan zmienia albo uruchamia, z sekcjami ## Ścieżki "
+    "i ## Płatne testy skilli w {lab}docs/zgoda-czlowieka.md, a plan z płatnymi przebiegami i płatnymi usługami. "
+    "O płatne testy fabryki pytaj tylko, gdy suma ich średnich kosztów z ## Płatne testy skilli przekracza "
+    "budżet z bramki 3 w {lab}CLAUDE.md; o wysyłkę danych pytaj zawsze. Przy takim pytaniu nie "
     "zapisuj plan.md: zakończ odpowiedź jednym pytaniem do człowieka o wszystkie znalezione bramki naraz, "
     "z rekomendacją przy każdej i z kosztem płatnych testów i przebiegów w tym samym pytaniu. Autopilot wznowi tę "
     "sesję, a człowiek odpowie w niej."
@@ -809,13 +315,14 @@ def plan_note(prefix=""):
 
 
 PLAN_NOTE = plan_note()
-# The end of the prompt of every `claude -p` step (P3 of the retro of przebudowa-autopilota-b, stop 22:02).
+# The end of the prompt of every `claude -p` step.
 STATE_NOTE = (
     "Plik stanu autopilota (.autopilot-local/<id>/stan.json): pole pid_kroku to proces tego kroku, a pole pid "
     "to proces autopilota, który ten krok uruchomił. Żaden z nich nie jest drugim przebiegiem, więc nie czekaj "
-    "na nie i nie pytaj o nie."
+    "na nie i nie pytaj o nie. Nie oddawaj pracy agentowi w tle i nie kończ tury, zanim Twoja praca nie jest "
+    "zacommitowana."
 )
-# The rule on facts about outside services (S-01 P3, D-312), in full in „Kiedy pytać człowieka” of CLAUDE.md of the
+# The rule on facts about outside services (D-312), in full in „Kiedy pytać człowieka” of CLAUDE.md of the
 # laboratory: a step in an application repo reads only CLAUDE.md of the app, so the note names the laboratory file in
 # full ({lab}). In every prompt of the chain and of the start: the <fabryka> sentence, this note, then STATE_NOTE.
 FACTS_NOTE_TEMPLATE = (
@@ -836,8 +343,8 @@ def step_tail(lab=""):
     return f"\n\n<fabryka> to folder fabryki: {path}.\n\n" + facts_note(lab) + "\n\n" + STATE_NOTE
 
 
-# Two separate points of the code review (W9, W13 of wdrozenie), in the prompt of impl-review and not in the skill: the
-# prompt is not a protected path and does not change the review criteria of the laboratory. No platform by name (W2).
+# Two separate points of the code review, in the prompt of impl-review and not in the skill: the
+# prompt is not a protected path and does not change the review criteria of the laboratory. No platform by name.
 REVIEW_NOTE_TEMPLATE = (
     "Dwa osobne punkty przeglądu kodu tej zmiany, każdy z osobną uwagą, gdy nie przechodzi. "
     "(1) Sekrety w CI: gdy gałąź dodaje albo zmienia plik w .github/workflows/ albo w "
@@ -861,7 +368,8 @@ def review_note(cid):
 CLAUDE_STEPS = {
     "research": (100, lambda cid, lab="": f"/10x-research {cid} " + RESEARCH_QUESTION.format(id=cid)
                  + step_tail(lab)),
-    "plan": (100, lambda cid, lab="": f"/10x-plan {cid}\n\n{plan_note(lab)}" + step_tail(lab)),
+    "plan": (100, lambda cid, lab="": f"/10x-plan {cid}\n\n{plan_note(lab)}"
+             + (f"\n\n{PLAN_PROGRAMS_NOTE}" if lab else "") + step_tail(lab)),
     "plan-review": (150, lambda cid, lab="": f"/10x-plan-review {cid}" + step_tail(lab)),
     "implement": (200, lambda cid, lab="": f"/10x-goal-implement {cid}" + step_tail(lab)),
     "impl-review": (200, lambda cid, lab="": f"/10x-impl-review {cid}\n\n{review_note(cid)}" + step_tail(lab)),
@@ -869,15 +377,14 @@ CLAUDE_STEPS = {
 }
 # Every step of the chain, in its order.
 CHAIN = ("start", "research", "plan", "plan-review", "implement", "impl-review", PREP_STEP, "testy-fabryki",
-         "wynik-testow", SYNC_STEP, "archiwum", "checkout-master", "merge", "push", RESULT_STEP, RETRO_PR_STEP,
-         SYNC_AFTER_PR, RUN_RECORD)
+         "wynik-testow", SYNC_STEP, "archiwum", "checkout-master", "merge", "push", RESULT_STEP, RUN_RECORD)
 # The steps whose stop line goes to change.md of context/changes/<id>/ (archiwum only before the folder moves);
 # the stop line of every later step (and of archiwum after the move) waits in the field zatrzymania_po_archiwum
 # of the state file for zapis-przebiegu.
 BEFORE_ARCHIVE = CHAIN[:CHAIN.index("archiwum") + 1]
 # The log of a resumed step: <stamp>-<step>-wznowienie.jsonl.
 RESUMED = "wznowienie"
-# The start of an application project (--start, plan.md of start-projektu, phase 4): its own chain in the repo of the
+# The start of an application project (--start): its own chain in the repo of the
 # application, with the id START_ID (state file .autopilot-local/start-projektu/stan.json), its trace in START_FILE
 # and the commits of its steps on the main branch.
 START_ID = "start-projektu"
@@ -894,33 +401,37 @@ ACCEPTANCE = "## Akceptacja"
 # The sections only the human writes (through the session); a step that changes them gets no commit, because the gates
 # akceptacja and domeny trust their lines.
 HUMAN_SECTIONS = (OWNER, CONSENTS, ACCEPTANCE)
-# Every `claude -p` step loads only the settings of the project and the local ones (impl-review F2 of paczka-1-1,
-# decision of the human): the sandbox exception of the human's settings (the key below) would let a step run code
+# Every `claude -p` step loads only the settings of the project and the local ones: the sandbox exception of the human's settings (the key below) would let a step run code
 # outside the sandbox. The effort level of the human's settings comes in --settings instead.
 STEP_SOURCES = "project,local"
 STEP_EFFORT = "high"
-# Without the user's settings Claude Code does not load ~/.claude/skills (impl-review-3 F1 of paczka-1-1, decision of
-# the human): every step gets in --add-dir this folder under trust_home(), whose .claude/skills links to
+# Without the user's settings Claude Code does not load ~/.claude/skills: every step gets in --add-dir this folder under trust_home(), whose .claude/skills links to
 # config_dir()/skills (one folder per target, named by its hash); neither the folder nor the target of the link is
 # writable for a step (step_skills).
 STEP_SKILLS = "skille-krokow"
 # Keys of the settings of the project and the local ones that run commands outside the sandbox besides the sandbox
-# exception (impl-review-3 F9 of paczka-1-1): a step stops when their value in HEAD or in the working tree differs
+# exception: a step stops when their value in HEAD or in the working tree differs
 # from the main branch.
 SETTINGS_RUN_KEYS = ("hooks", "apiKeyHelper", "awsCredentialExport")
 # The key of the sandbox settings whose commands run outside the sandbox, built so that the name is not written whole
-# in this file (criterion P12 of paczka-1-1: no line of the autopilot adds such an entry). A step whose repo has it in
+# in this file (no line of the autopilot adds such an entry). A step whose repo has it in
 # a settings file (HEAD or the working tree) stops before its process with the kind zgoda (SANDBOX_EXCEPTION_REASON).
 SANDBOX_EXCEPTION_KEY = "excluded" + "Commands"
 SANDBOX_EXCEPTION_REASON = "ustawienia repo kroku mają wyjątek piaskownicy"
-# The stop on hooks, apiKeyHelper or awsCredentialExport that differ from the main branch (impl-review-3 F9 and
-# impl-review-6 F2 of paczka-1-1): kind zgoda too, but its own reason, which the session leads apart from the
+# The stop on hooks, apiKeyHelper or awsCredentialExport that differ from the main branch: kind zgoda too, but its own reason, which the session leads apart from the
 # exception: the human restores the change or brings it to the main branch.
 SETTINGS_RUN_REASON = "ustawienia repo kroku mają zmienione polecenia poza piaskownicą"
-# The start step that installs the guardrails: in the start its working tree may hold exactly the hooks the
-# installer of the laboratory writes (guardrails_hooks) without a stop (impl-review-6 F2 of paczka-1-1).
+# The start step of the guardrails: the autopilot runs the installer of the laboratory right before it
+# (guardrails_install), and the step only checks the result and writes ## Verify. In the start its working tree may
+# hold exactly the hooks that installer writes (guardrails_hooks) without a stop.
 GUARDRAILS_STEP = "zabezpieczenia"
 GUARDRAILS_INSTALLER = "skills/guardrails/scripts/install.py"
+# The name of the log of that installer run (log_path), apart from the log of the step.
+GUARDRAILS_INSTALL_LOG = "zabezpieczenia-instalator"
+# The folders of the app the installer writes in outside the sandbox (its files and their temporary files), each
+# with whether guardrails_links_problem looks into its subfolders too: the root of the repo (.gitignore), .claude/
+# and .git/info/ (exclude).
+GUARDRAILS_INSTALL_FOLDERS = (("", False), (".claude", True), (".git/info", False))
 NO_BASIS = "## Decyzje bez podstawy"
 FIRST_SLICE_HEADING = "## Pierwszy kawałek"
 NO_FIRST_SLICE = "- brak w odpowiedzi kroku roadmapa"
@@ -936,7 +447,7 @@ HUMAN = "człowiek"
 # The command steps of the start that are gates of the human: the kind of their stop (key `rodzaj`).
 KIND_ACCEPTANCE = "akceptacja"
 KIND_DOMAIN = "domena"
-# The last step of the start (I-11): it waits for ## Lista końcowa of the session in the committed start.md and pushes
+# The last step of the start: it waits for ## Lista końcowa of the session in the committed start.md and pushes
 # it, because the autopilot runs outside the sandbox of the app and the session has no login to GitHub there.
 FINAL_LIST = "## Lista końcowa"
 # The line of the final list with what the human prepares for the whole roadmap (the fields Potrzebuje other than nic).
@@ -956,8 +467,7 @@ GUARDRAILS_APP = ".claude/guardrails.json"
 # A step in an application repo whose access record has no .claude/settings.json (field ustawienia of dostep_krokow;
 # the start before zabezpieczenia) gets the
 # domains of GUARDRAILS_TEMPLATE and these allowWrite and allowRead entries (the npm cache): the default security the
-# human approves in the gate question of the start (default_access; decision of the human, change.md of wdrozenie,
-# krok: implement). The step szkielet stops before it runs when the starter's package manager is another one.
+# human approves in the gate question of the start (default_access). The step szkielet stops before it runs when the starter's package manager is another one.
 START_WRITES = ("~/.npm",)
 START_PACKAGE_MANAGER = "npm"
 SKELETON_STEP = "szkielet"
@@ -989,11 +499,18 @@ CHECKABLE = "## Sprawdzalność scenariusza"
 # The step plan-testow (after roadmapa): the test plan of the app before its first slice (D-302, D-304). It is the
 # first `claude -p` step after domeny, so it runs with the access of the steps of the slices (run_access: the record
 # dostep_krokow), and it also runs the programs of those steps there: one line per program in STEP_PROGRAMS of
-# start.md; a line with SANDBOX_MISSING stops the step (paczka-1-1, P13).
+# start.md with one of four results. A line with PROGRAM_MISSING (the program is not there) or SANDBOX_MISSING (a
+# program of verify, of the guardrails or the package manager is there but fails in this sandbox) stops the step;
+# a line with TEST_SANDBOX_MISSING (a test program of tech-stack.md or test-plan.md that is there but fails in this
+# sandbox) goes on, unless it names a program of the guardrails or the package manager (step_programs_problem).
 TEST_PLAN_STEP = "plan-testow"
 TEST_PLAN_FILE = "context/foundation/test-plan.md"
 STEP_PROGRAMS = "## Programy kroków"
 SANDBOX_MISSING = "niedostępne w piaskownicy kroku"
+PROGRAM_MISSING = "brak programu"
+# It differs from SANDBOX_MISSING by one letter, so the parser also takes a line with "w piaskownicy kroku" as a stop.
+TEST_SANDBOX_MISSING = "niedostępny w piaskownicy"
+STEP_SANDBOX = "w piaskownicy kroku"
 # The section of CLAUDE.md of the app with the one command that runs it locally (szkielet, D-292).
 LOCAL_RUN = "## Uruchomienie lokalne"
 # The field of every roadmap item with the accesses it needs (roadmapa).
@@ -1011,9 +528,9 @@ START_NOTE_TEMPLATE = (
     "a decyzje kroków po posiedzeniu widzi na liście końcowej. Każde takie rozstrzygnięcie zapisz jedną linią "
     "w ## Pytania do człowieka w context/foundation/start.md (format z punktu 6 {lab}docs/zasady-budowy.md): "
     "- rodzaj: <rodzaj> · krok: {step} · pytanie: <pytanie> · rekomendacja: <rekomendacja> · wybór: rekomendacja "
-    "· rozstrzygnął: agent. Wyjątek, jak w kroku planu: gdy ta decyzja trafia na jedną z siedmiu bramek "
-    "z „Kiedy pytać człowieka” w {lab}CLAUDE.md: " + GATES_TEMPLATE + " (decyzja, która wymaga płatnej usługi, "
-    "to przypadek bramki (3)), nie "
+    "· rozstrzygnął: agent. Wyjątek, jak w kroku planu: gdy ta decyzja trafia "
+    "na jedną z bramek z „Kiedy pytać człowieka” w {lab}CLAUDE.md (przeczytaj tę sekcję przed decyzją), "
+    "a decyzja, która wymaga płatnej usługi, to przypadek bramki 3, nie "
     "podejmuj jej i nie rób niczego, co od niej zależy: zakończ odpowiedź pytaniem do człowieka z rekomendacją, "
     "a ostatnią linią odpowiedzi niech będzie PYTANIE_DO_CZLOWIEKA: <pytanie i rekomendacja jednym zdaniem>. "
     "Autopilot zatrzyma start, a człowiek odpowie w tej sesji. Propozycja technologii albo infrastruktury, którą "
@@ -1042,18 +559,33 @@ TEST_PLAN_REQUEST = (
     "w kawałkach roadmapy, a nie w osobnych zmianach przed pierwszym kawałkiem (D-304). Nie konfiguruj CI."
 )
 # The second part of the request of the step plan-testow of the start (not of the session, which takes only
-# TEST_PLAN_REQUEST): the programs of the steps of the slices, run in the sandbox of this step (P13).
+# TEST_PLAN_REQUEST): the programs of the steps of the slices, run in the sandbox of this step.
 STEP_PROGRAMS_REQUEST = (
     "Programy kroków: ta sesja ma dostęp kroków claude -p kawałków roadmapy (ta sama piaskownica, te same foldery "
     "zapisu i domeny), więc sprawdź w niej, czy kroki kawałków uruchomią swoje programy. Uruchom w tej sesji "
     "polecenie sprawdzające projektu (sekcja ## Verify w CLAUDE.md) i każdy jego program osobno, programy "
-    "zabezpieczeń projektu: {programs}, i menedżer pakietów projektu (np. jego polecenie wersji). "
-    "W context/foundation/start.md zapisz sekcję " + STEP_PROGRAMS + " (dopisz ją, gdy jej nie ma, i zastąp jej "
-    "dotychczasowe linie): jedna linia - na program: program, polecenie, wynik działa albo " + SANDBOX_MISSING
-    + " z treścią błędu. Każdy błąd programu w tej sesji (brak programu, odmowa zapisu albo sieci, kod różny od 0) "
-    "to " + SANDBOX_MISSING + ", także gdy na komputerze człowieka program działa. Niczego nie instaluj i nie "
-    "zmieniaj ustawień, żeby program zadziałał: autopilot zatrzyma krok na takiej linii, a decyzję podejmie "
-    "człowiek."
+    "zabezpieczeń projektu: {programs}, menedżer pakietów projektu (np. jego polecenie wersji) i każdy program, "
+    "którym context/foundation/tech-stack.md albo context/foundation/test-plan.md każe sprawdzać aplikację "
+    "(program testów). W context/foundation/start.md zapisz sekcję " + STEP_PROGRAMS + " (dopisz ją, gdy jej nie "
+    "ma, i zastąp jej dotychczasowe linie): jedna linia na program w postaci - <program>, <polecenie>, <wynik>, "
+    "przy wyniku innym niż działa z treścią błędu. Wynik to jedno z czterech. działa: program działa w tej sesji. "
+    + PROGRAM_MISSING + ": programu nie ma w tej sesji (np. command -v nic nie znajduje), dla każdego programu. "
+    + SANDBOX_MISSING + ": program polecenia sprawdzającego, program zabezpieczeń albo menedżer pakietów jest, ale "
+    "w tej sesji nie działa (odmowa zapisu albo sieci, kod różny od 0), także gdy na komputerze człowieka działa. "
+    + TEST_SANDBOX_MISSING + ": tylko program testów, który jest, ale w tej sesji nie działa. Program uruchamiany "
+    "przez polecenie sprawdzające nigdy nie jest programem testów: przy błędzie dostaje " + SANDBOX_MISSING
+    + ", także gdy context/foundation/test-plan.md też go wymienia. Niczego nie instaluj i nie zmieniaj ustawień, "
+    "żeby program zadziałał: autopilot zatrzyma krok na linii " + PROGRAM_MISSING + " albo " + SANDBOX_MISSING
+    + ", a decyzję podejmie człowiek. Linia " + TEST_SANDBOX_MISSING + " programu testów nie zatrzymuje startu: "
+    "testy tym programem uruchomi sesja główna."
+)
+# The sentence the prompt of the step plan gets in an application repo (CLAUDE_STEPS, `lab` not empty): the test
+# programs of STEP_PROGRAMS that do not run in the sandbox of the steps (skills/10x-plan/SKILL.md, „Tests the step's
+# sandbox cannot run”).
+PLAN_PROGRAMS_NOTE = (
+    "Przeczytaj " + STEP_PROGRAMS + " w " + START_FILE + ". Program z linią " + TEST_SANDBOX_MISSING + " nie "
+    "działa w piaskownicy kroków, więc gdy plan pisze testy tym programem, dodaje przebieg sesji głównej zaraz po "
+    "pierwszej fazie, która je pisze, według reguły „Tests the step's sandbox cannot run” skilla /10x-plan."
 )
 LOCAL_NOTE = (
     "Tryb lokalny jest mocno preferowany: szkielet uruchamia się i przechodzi polecenie sprawdzające lokalnie bez "
@@ -1130,7 +662,7 @@ START_PROMPTS = {
         "je kawałki roadmapy. Dodaj "
         "jedno polecenie uruchomienia lokalnego w menedżerze pakietów projektu: sprawdza wymagania z " + MACHINE
         + " w context/foundation/start.md, uruchamia lokalne usługi, ustawia zmienne środowiska (z lokalnych "
-        "usług, a gdy CLAUDE.md ma sekcję ## Dostępy, z plików, których ścieżki ona podaje) i uruchamia serwer. "
+        "usług, a gdy CLAUDE.md ma sekcję ## Dostępy, z plików, których ścieżki ona podaje) i uruchamia aplikację. "
         "Polecenie samo uruchamia zainstalowane, a wyłączone usługi i czeka na ich start, zanim pójdzie dalej. "
         "Nadaje aplikacji własne nazwy zasobów lokalnych (np. z nazwą projektu w nazwie bazy, kontenera, wolumenu), "
         "żeby nie dzieliła ich z innym projektem. Zasób zajęty przez inny projekt (np. port) rozpoznaje i wypisuje "
@@ -1140,7 +672,12 @@ START_PROMPTS = {
     "zabezpieczenia": (
         "/guardrails",
         "Zgoda człowieka na domyślne zabezpieczenia projektu jest w ## Zgody w context/foundation/start.md. "
-        "Sekcję Verify zapisz w CLAUDE.md."),
+        "Autopilot już uruchomił instalator zabezpieczeń (krok 3 skilla) w tym repo, z samymi zapisami i domenami "
+        "z tej zgody. Nie uruchamiaj instalatora, nie wybieraj zapisów ani domen (krok 2 skilla) i nie zmieniaj "
+        "niczego w .claude/. Sprawdź wynik instalatora w .claude/settings.json i .claude/guardrails.json. Zrób "
+        "jedno polecenie sprawdzające (krok 4 skilla) i zapisz sekcję ## Verify w CLAUDE.md (krok 5 skilla). Nie "
+        "proś człowieka o żadne polecenie do wklejenia w rozmowie ani w Terminalu: zabezpieczenia są już "
+        "zainstalowane."),
     ROADMAP_STEP: (
         "/10x-roadmap context/foundation/prd.md",
         "Baza potwierdzona: PRD, technologię i infrastrukturę zaakceptował człowiek, a szkielet i zabezpieczenia są "
@@ -1196,8 +733,8 @@ def start_prompt(step, lab=""):
 # name -> (--max-turns, prompt(cid, lab)) of every `claude -p` step of the start, in the shape of CLAUDE_STEPS.
 START_CLAUDE_STEPS = {name: (START_TURNS[name], (lambda name: lambda cid, lab="": start_prompt(name, lab))(name))
                       for name in START_CHAIN if name in START_PROMPTS}
-# The costs of the `claude -p` steps (P23): koszty-krokow.md of the change folder before the archive, the section
-# of context/przebiegi/<id>.md for archiwum (plan.md, „Decyzje planu”).
+# The costs of the `claude -p` steps: koszty-krokow.md of the change folder before the archive, the section
+# of context/przebiegi/<id>.md for archiwum.
 COSTS = "koszty-krokow.md"
 COSTS_TITLE = "# Koszty kroków: {id}"
 RUNS = "context/przebiegi"
@@ -1271,7 +808,7 @@ def number(value):
 
 
 def step_costs(streams):
-    """The costs of one `claude -p` session from the stream-json logs of its processes, in their order (P23):
+    """The costs of one `claude -p` session from the stream-json logs of its processes, in their order:
     model (`model` of the last system/init), input_tokens, output_tokens, cache_read, cache_write (the sum over
     the models of modelUsage of the last `result` of the last process), max_context (the maximum of
     input_tokens + cache_read_input_tokens + cache_creation_input_tokens over the `assistant` events with
@@ -1471,7 +1008,7 @@ def phase_progress(plan_text):
 
 def phase_text(plan_text):
     """`faza <n> z <total>: <heading>` of phase_progress, or None: the `faza` field of the state file and the
-    phase line `krok <name>: faza <n> z <total>: <heading>` (P18 of paczka-1-1)."""
+    phase line `krok <name>: faza <n> z <total>: <heading>`."""
     progress = phase_progress(plan_text)
     if progress is None:
         return None
@@ -1575,6 +1112,8 @@ def missing_trace(step, root, cid, snap):
         number, path = newest_report(os.path.join(folder, "reviews"), step)
         before = snap["reports"].get(step, 0)
         if number <= before:
+            if before >= REVIEW_ROUNDS:
+                return None  # round 4 never starts: the review writes no report (triage policy, „Ponowne review”)
             return (f"brak nowego raportu {step}*.md w {rel_folder}/reviews/ "
                     f"(najwyższy numer przed krokiem: {before}, po kroku: {number})")
         value = verdict(read(path))
@@ -1611,7 +1150,7 @@ def files_reason(step, root, cid, snap):
 def judge_step(step, code, stream, root, cid, snap):
     """(reason, denials) after a `claude -p` step. reason is the reason to stop, in the fixed order (the log,
     then the change's files), with the denied tool calls in front of it; None when the chain goes on. None
-    with denials: the denied tool calls were the only reason and the step's trace is complete (P11), so the
+    with denials: the denied tool calls were the only reason and the step's trace is complete, so the
     step is accepted with a stop line."""
     reason, denials = judge_log(code, stream)
     if reason is None:
@@ -1669,48 +1208,6 @@ def with_section(text, title, heading, body):
     return "\n".join(lines[:head] + block + ([""] if end < len(lines) else []) + lines[end:]) + "\n"
 
 
-def pr_state_parts(text):
-    """(state, details) of the rest of a `P<n>: …` line: the known state it starts with (PR_STATES) and the
-    rest after it without the dash; an unknown line splits at its first ` — `."""
-    for state in PR_STATES:
-        if text == state or text.startswith(state + " "):
-            rest = text[len(state):].strip()
-            return state, (rest[1:].strip() if rest.startswith("—") else rest)
-    head, _, rest = text.partition(" — ")
-    return head.strip(), rest.strip()
-
-
-def pr_result_line(n, text):
-    """One line of `## Wynik kroku PR` (P22): `- P<n> · stan: <state> · PR: #<n>|— · szczegóły: <rest>`; the
-    PR number from `(PR #N)` or from an address `/pull/N`; ` · ` inside the text becomes `; `."""
-    state, details = pr_state_parts(text)
-    match = PR_NUMBER.search(text)
-    number = f"#{match.group(1) or match.group(2)}" if match else NOT_YET
-    fields = (f"P{n}", f"stan: {state}", f"PR: {number}", f"szczegóły: {details or NOT_YET}")
-    return "- " + FIELD_SEP.join(field.replace(FIELD_SEP, "; ") for field in fields)
-
-
-def pr_result_lines(record, proposals, app=False):
-    """The lines of `## Wynik kroku PR` from the field `krok_pr` of the state file (the `P<n>: …` lines of the
-    PR step and its exit code) and the proposals of retro.md: one line per proposal number, in order; a
-    proposal without a line of the step gets the state `błąd`. Without anything, one sentence says why. In an
-    application repo (app) the PR step is skipped: every proposal of retro.md gets `stan: czeka na człowieka`
-    and the record is not read."""
-    if app:
-        if not proposals:
-            return ["Brak propozycji w retro.md; krok PR pominięty, repo aplikacji."]
-        return [pr_result_line(proposal["n"], APP_PR_RESULT) for proposal in proposals]
-    if not isinstance(record, dict):
-        return ["Brak zapisu kroku PR w pliku stanu."]
-    code = record.get("kod")
-    states = pr_states("\n".join(record.get("wynik") or []))
-    numbers = sorted(set(states) | {proposal["n"] for proposal in proposals})
-    if not numbers:
-        return [f"Brak propozycji i linii P<n>: … kroku PR (kod {code})."]
-    return [pr_result_line(n, states[n] if n in states
-                           else f"błąd — krok PR nie wypisał stanu tej propozycji (kod {code})") for n in numbers]
-
-
 def stop_line_fields(line):
     """The fields of one stop line (`- czas: … · krok: … · …`) as a dict."""
     body = line[2:] if line.startswith("- ") else line
@@ -1733,7 +1230,7 @@ def stop_fields(line):
 
 
 def project_servers(root):
-    """The MCP servers of the repo (A8, A9): (path of <root>/.mcp.json, [names of its mcpServers]), or
+    """The MCP servers of the repo: (path of <root>/.mcp.json, [names of its mcpServers]), or
     (None, []) when the file does not exist. ValueError `niepoprawny .mcp.json: <why>` when the file is
     unreadable, not JSON, not a JSON object or has no object mcpServers. ${VAR} in the file is not checked."""
     path = os.path.join(root, MCP_FILE)
@@ -1760,7 +1257,7 @@ def allowed_tools(servers, base=ALLOWED_TOOLS):
 
 
 def tool_flags(mcp_path, servers, tools=STEP_TOOLS, allowed=ALLOWED_TOOLS, mode=STEP_MODE, access=None):
-    """The tools of a step (P9, P11, A7–A9): the model sees only `tools` (STEP_TOOLS; the step infrastruktura of
+    """The tools of a step: the model sees only `tools` (STEP_TOOLS; the step infrastruktura of
     the start INFRA_STEP_TOOLS, D-285) and the servers of the repo's .mcp.json (--strict-mcp-config skips every
     other MCP configuration: ~/.claude.json, the connectors of claude.ai; without .mcp.json there is no
     --mcp-config and so no server), and may use `allowed` (ALLOWED_TOOLS; in an application repo without the bare
@@ -1768,11 +1265,11 @@ def tool_flags(mcp_path, servers, tools=STEP_TOOLS, allowed=ALLOWED_TOOLS, mode=
     of the laboratory with the fixed places with keys) gives --add-dir, --settings and the rules of --disallowedTools:
     trust_deny, the Read rules of the places with keys and, in an application repo, Edit of the laboratory.
     --mcp-config, --add-dir, --disallowedTools and --allowedTools take several values, so another option always
-    follows each of them (P0). The permission mode is STEP_MODE (INFRA_MODE for the step infrastruktura of the
+    follows each of them. The permission mode is STEP_MODE (INFRA_MODE for the step infrastruktura of the
     start). Every step loads only the settings of STEP_SOURCES (--setting-sources: not the user's settings, whose
     sandbox exception would let it out of the sandbox) and gets effortLevel STEP_EFFORT in --settings."""
     deny, add_dirs, settings = access or step_access(None, None)
-    # impl-review F2 of paczka-1-1: only the settings of the project and the local ones, and the effort level here.
+    # Only the settings of the project and the local ones, and the effort level here.
     settings = dict(settings, effortLevel=STEP_EFFORT)
     config = ["--mcp-config", mcp_path] if mcp_path else []
     added = [flag for folder in add_dirs for flag in ("--add-dir", folder)]
@@ -1782,7 +1279,7 @@ def tool_flags(mcp_path, servers, tools=STEP_TOOLS, allowed=ALLOWED_TOOLS, mode=
 
 
 def not_fully_allowed(step_tools, allowed, servers):
-    """The tools a step sees that its --allowedTools does not allow in full (A5): every name of step_tools but
+    """The tools a step sees that its --allowedTools does not allow in full: every name of step_tools but
     ToolSearch, and `mcp__<server>` for each server. Only the bare name allows a tool in full; a pattern
     (`Bash(git:*)`) or no entry does not, and then an `allow` rule of the settings could widen the step
     (allow_problems checks the rules of these tools)."""
@@ -1793,7 +1290,7 @@ def not_fully_allowed(step_tools, allowed, servers):
 
 
 def step_model(env=None):
-    """The model of the `claude -p` steps: $AUTOPILOT_MODEL, else DEFAULT_MODEL (A16)."""
+    """The model of the `claude -p` steps: $AUTOPILOT_MODEL, else DEFAULT_MODEL."""
     env = os.environ if env is None else env
     return env.get(MODEL) or DEFAULT_MODEL
 
@@ -1808,7 +1305,7 @@ def step_command(prompt, session_id, turns, mcp_path, servers, tools=STEP_TOOLS,
 def answer_command(session_id, answer, turns, mcp_path, servers, tools=STEP_TOOLS, allowed=ALLOWED_TOOLS,
                    mode=STEP_MODE, access=None):
     """`claude -p --resume <session> <answer>` with the same model, permission mode, tools, MCP servers, access,
-    turns and output as the step (P6, D-129)."""
+    turns and output as the step (D-129)."""
     return [CLAUDE, "-p", "--resume", session_id, answer, "--model", step_model(),
             *tool_flags(mcp_path, servers, tools, allowed, mode, access), "--max-turns", str(turns),
             "--output-format", "stream-json", "--verbose"]
@@ -1839,7 +1336,7 @@ def new_state(chain=CHAIN):
     return {"krok": None, "faza": None, "ostatnia_czynnosc": None, "czas": None, "log": None, "pid": None,
             "pid_kroku": None, "sesja": None, "migawka": None, "zatrzymanie": None, "przerwanie": None,
             "zrobione": [], "przyjete": [], "nastepny": chain[0], "procesy": {}, "synchronizacja": [],
-            "zatrzymania_po_archiwum": [], "krok_pr": None, START_SECTIONS: None}
+            "zatrzymania_po_archiwum": [], START_SECTIONS: None}
 
 
 def state_path(root, cid):
@@ -1866,7 +1363,7 @@ def trust_deny():
     return f"Edit(/{trust_home()}/**)"
 
 
-# What a `claude -p` step may read and write (plan.md of wdrozenie, phase 9).
+# What a `claude -p` step may read and write.
 
 def fixed_places():
     """The fixed places with keys as (path, folder): KEY_FOLDERS with True, KEY_FILES with False."""
@@ -1897,7 +1394,7 @@ def key_places(state):
     """The places with keys of a step as (path, folder): fixed_places, then, each path once, recorded_places of the
     record sekcje_startu of this run (`state`) and of every trusted file under trust_home (*/*.json: the runs of this
     and of other apps, also in the laboratory), with folder None (not known); last, the real path of every place
-    whose links lead elsewhere (the sandbox and a link: impl-review-3 F5). A trusted file gone between the listing
+    whose links lead elsewhere (the sandbox and a link). A trusted file gone between the listing
     and the read (another run removed it) is skipped. ValueError when a trusted file cannot be read or is not a JSON
     object: then the step does not know which places to keep it from."""
     places = fixed_places()
@@ -1969,7 +1466,7 @@ def covers(outer, inner):
 
 def committed_text(run_, path, ref="HEAD"):
     """committed for a file of the app the access of a step comes from; ValueError with the reason for the human when
-    the file in `ref` is not UTF-8 text (impl-review-5 F8)."""
+    the file in `ref` is not UTF-8 text."""
     try:
         return committed(run_.root, path, ref)
     except UnicodeDecodeError:
@@ -1988,7 +1485,7 @@ def access_record(run_, ref="HEAD"):
     commit `ref`: whether .claude/settings.json is there (ustawienia), its sandbox.filesystem.allowWrite (zapis) and
     sandbox.network.allowedDomains (domeny), stripped, each once, and the hosts of the lines `zgoda: domena <host>` of
     the human in ## Zgody of start.md (zgody_domen), sorted. .claude/settings.local.json does not count: the access of
-    a step comes only from the files the human commits (impl-review-5 F7). ValueError with the reason to stop: a file
+    a step comes only from the files the human commits. ValueError with the reason to stop: a file
     that is not UTF-8, settings that are not a JSON object, an allowWrite that is not a list of paths or an
     allowedDomains that is not a list of names."""
     name = SANDBOX_SETTINGS[0]
@@ -2034,7 +1531,7 @@ def step_record(run_):
 def access_problem(run_, record):
     """Why a step may not start with the record `record`: the access in HEAD (access_record) differs from it, so a
     commit after the record changed what the step would get (maybe a step itself, also through git plumbing past the
-    protected file in the tree; impl-review-5 F1). The reason starts with ACCESS_REASON, which gives the stop the kind
+    protected file in the tree). The reason starts with ACCESS_REASON, which gives the stop the kind
     zgoda, and the access in HEAD is kept as ACCESS_SHOWN for --przyjmij (shown_access). None when they are the same."""
     now = access_record(run_)
     labels = (("ustawienia", f"{SANDBOX_SETTINGS[0]} jest w commicie"),
@@ -2069,7 +1566,7 @@ def access_problem(run_, record):
 
 
 def shown_access(run_):
-    """What --przyjmij may take into dostep_krokow (impl-review-6 F1 and F6 of wdrozenie, decision of the human): only
+    """What --przyjmij may take into dostep_krokow: only
     what the stop showed, as it was at the stop. (ACCESS_SHOWN, None) after a stop on the access of the steps; (None,
     None) after a stop on something else, so the record stays and any change of the access in HEAD still stops the
     step; (None, reason) after a stop on the access that kept nothing."""
@@ -2101,7 +1598,7 @@ def record_writes(record, root):
 
 def path_forms(path):
     """The forms of an absolute path to compare: as written and real (links resolved), lower case on macOS, whose
-    file system does not tell the case apart (impl-review-3 F5)."""
+    file system does not tell the case apart."""
     forms = {path, os.path.realpath(path)}
     return {form.lower() for form in forms} if sys.platform == "darwin" else forms
 
@@ -2142,10 +1639,11 @@ def package_manager(root):
 
 def default_access(run_, name):
     """(the domains, the allowWrite entries) of a step in an application repo whose access record has no
-    .claude/settings.json (field ustawienia of dostep_krokow; the start before the step zabezpieczenia; decision of the human, change.md of wdrozenie, krok: implement): the
+    .claude/settings.json (field ustawienia of dostep_krokow; the start before the step zabezpieczenia): the
     allowed_domains of GUARDRAILS_TEMPLATE in the laboratory and START_WRITES, the same the human approves in the
-    gate question of the start (the default security of the project, D-283, D-284) and /guardrails writes after
-    szkielet. Not a new consent, so nothing else. ValueError with the reason to stop before the step: the template
+    gate question of the start (the default security of the project, D-283, D-284) and the installer of the
+    guardrails writes after szkielet, which the autopilot runs before the step zabezpieczenia (guardrails_install).
+    Not a new consent, so nothing else. ValueError with the reason to stop before the step: the template
     cannot give its domains, or the step szkielet of the start would install a starter whose package manager
     (package_manager of tech-stack.md) is not START_PACKAGE_MANAGER, whose registry and cache the sandbox does not
     open."""
@@ -2175,7 +1673,7 @@ def default_access(run_, name):
 
 def app_domains(run_, record=None):
     """(the domains for the step, the dropped ones) of a step in an application repo with .claude/settings.json in
-    the record of its access (`record`, access_record of HEAD by default; PC11 of wdrozenie, D-336): under the read
+    the record of its access (`record`, access_record of HEAD by default; D-336): under the read
     block the sandbox of the step leaves out sandbox.network.allowedDomains of the repo's settings, so the step gets
     them in --settings, from the record (not the working tree, not .claude/settings.local.json) and only the ones that
     pass the domain check of the autopilot: a host of allowed_domains of GUARDRAILS_TEMPLATE in the laboratory or one
@@ -2201,7 +1699,7 @@ def app_domains(run_, record=None):
     return kept, dropped
 
 
-# The PreToolUse hook of every `claude -p` step (decision of the human on impl-review-3 F1 of wdrozenie, option C):
+# The PreToolUse hook of every `claude -p` step:
 # the allowed-tools of a skill allow Write and Edit in full for the whole step, and a deny rule cannot keep them off
 # every path outside the project only, so the hook refuses a write of WRITE_HOOK_TOOLS outside the project folder,
 # its path taken after the links (os.path.realpath). The code is in the text of --settings, not in a file the step
@@ -2239,7 +1737,7 @@ def write_hook(project):
 
 
 def step_skills_folder(target):
-    """The folder of step_skills for the real path `target` of the skills (impl-review-6 F3 of paczka-1-1): one folder
+    """The folder of step_skills for the real path `target` of the skills: one folder
     per target, so runs with another CLAUDE_CONFIG_DIR do not share a link."""
     return os.path.join(trust_home(), STEP_SKILLS, hashlib.sha256(target.encode("utf-8")).hexdigest()[:16])
 
@@ -2247,7 +1745,7 @@ def step_skills_folder(target):
 def step_skills():
     """(the folder that every `claude -p` step gets in --add-dir, the real path of the skills it shows):
     STEP_SKILLS/<16 hex of the sha256 of the target> under trust_home(), whose .claude/skills is a link to
-    config_dir()/skills, made or corrected here (impl-review-3 F1 and impl-review-6 F3 of paczka-1-1). A link put in place of something else replaces it only when that is a link; anything else at
+    config_dir()/skills, made or corrected here. A link put in place of something else replaces it only when that is a link; anything else at
     .claude/skills is a ValueError, because the autopilot does not delete a folder it did not make."""
     target = os.path.realpath(os.path.join(config_dir(), "skills"))
     folder = step_skills_folder(target)
@@ -2278,13 +1776,13 @@ def step_access(root, lab, places=None, writes=(), domains=()):
     or app_domains).
     Every step: trust_deny and read_rules in the rules; in the settings the sandbox on (failIfUnavailable, no command
     outside it) with denyRead of the places, allowRead of READ_AGAIN and denyWrite of trust_home (Bash does not write
-    the trusted fields, impl-review-3 F2), and write_hook of the project (`root`, else the laboratory `lab`; neither:
+    the trusted fields), and write_hook of the project (`root`, else the laboratory `lab`; neither:
     no write). An application repo (is_app): reads outside
     the working folders blocked (permissions.blockReadsOutsideWorkingDirectories), the laboratory (its docs) and
     config_dir()/skills (when it exists, also in allowRead) in --add-dir but not writable (Edit(/<folder>/**) in the
     rules, denyWrite), config_dir() in denyRead, `writes` in allowWrite and allowRead, and `domains`, when there are
     any, in sandbox.network.allowedDomains."""
-    # impl-review-3 F1 of paczka-1-1: every step, also in the laboratory, gets the folder of step_skills last in
+    # Every step, also in the laboratory, gets the folder of step_skills last in
     # --add-dir, it and the target of its link not writable (Edit rules, denyWrite); ValueError from step_skills.
     places = fixed_places() if places is None else places
     deny = [trust_deny()] + read_rules(places)
@@ -2306,7 +1804,7 @@ def step_access(root, lab, places=None, writes=(), domains=()):
         filesystem["allowRead"] += list(writes) + readable
         if domains:
             settings["sandbox"]["network"] = {"allowedDomains": list(domains)}
-    # impl-review-3 F1 of paczka-1-1: the skills of the user for every step, without their write.
+    # The skills of the user for every step, without their write.
     add_dirs.append(skills_folder)
     for folder in (skills_folder, skills_target):
         if f"Edit(/{folder}/**)" not in deny:
@@ -2324,12 +1822,12 @@ def config_dir():
 def allow_problems(root, guarded, lab):
     """The entries of the settings files that could widen a step whose --allowedTools does not allow the tools
     `guarded` in full (not_fully_allowed), each with its file: in SANDBOX_SETTINGS of the repo (the steps do not load
-    the user's settings, impl-review-3 F9 of paczka-1-1) an `allow` rule of a guarded tool, bare or with a path that starts with // or ~ or has .., except
-    PACKAGE_READ_RULES whose //<path>/** has the realpath of the package folder `lab` (K5, K6), and a non-empty
+    the user's settings) an `allow` rule of a guarded tool, bare or with a path that starts with // or ~ or has .., except
+    PACKAGE_READ_RULES whose //<path>/** has the realpath of the package folder `lab`, and a non-empty
     permissions.additionalDirectories (also the package folder); in
     any of them disableAllHooks, which would switch write_hook off. A file that exists but is not a JSON object is a
-    problem too (A5, D-252, D-288)."""
-    # impl-review-3 F9 of paczka-1-1: the steps no longer load the user's settings (STEP_SOURCES), so only the repo's.
+    problem too (D-252, D-288)."""
+    # The steps no longer load the user's settings (STEP_SOURCES), so only the repo's.
     files = [os.path.join(root, path) for path in SANDBOX_SETTINGS]
     problems = []
     for path in files:
@@ -2379,7 +1877,7 @@ def settings_run_values(text):
 def guardrails_hooks(lab, root, main=None):
     """The hooks of .claude/settings.json of the repo `root` after the installer of the laboratory's guardrails
     (GUARDRAILS_INSTALLER, merged_settings) ran on its version of the main branch `main` (HEAD when None); None when
-    that cannot be computed, so no exception is granted (impl-review-6 F2 of paczka-1-1)."""
+    that cannot be computed, so no exception is granted."""
     try:
         base = committed(root, SANDBOX_SETTINGS[0], main or "HEAD")
         spec = importlib.util.spec_from_file_location("guardrails_install", os.path.join(lab, GUARDRAILS_INSTALLER))
@@ -2398,14 +1896,13 @@ def guardrails_hooks(lab, root, main=None):
 
 
 def sandbox_exception_problem(root, again, main=None, installed_hooks=None):
-    """Why no `claude -p` step may start in the repo `root` (impl-review F2 of paczka-1-1, decision of the human): a
+    """Why no `claude -p` step may start in the repo `root`: a
     file of SANDBOX_SETTINGS has a non-empty sandbox.<SANDBOX_EXCEPTION_KEY> in HEAD or in the working tree, so a step,
     which loads the settings of the project and the local ones, could run code outside the sandbox. A file that is not
-    JSON counts when its text names the key, a committed file that is not UTF-8 always counts. impl-review-3 F9 of
-    paczka-1-1: so does a file whose SETTINGS_RUN_KEYS (hooks, apiKeyHelper, awsCredentialExport), in HEAD or in the
+    JSON counts when its text names the key, a committed file that is not UTF-8 always counts. So does a file whose SETTINGS_RUN_KEYS (hooks, apiKeyHelper, awsCredentialExport), in HEAD or in the
     working tree, differ from the main branch `main` (HEAD when None), and a file of the working tree that exists but
-    cannot be read as UTF-8. installed_hooks (guardrails_hooks, only for the start step GUARDRAILS_STEP; impl-review-6
-    F2): hooks of .claude/settings.json in the working tree equal to it do not count as a change. The reason starts
+    cannot be read as UTF-8. installed_hooks (guardrails_hooks, only for the start step GUARDRAILS_STEP):
+    hooks of .claude/settings.json in the working tree equal to it do not count as a change. The reason starts
     with SANDBOX_EXCEPTION_REASON, or with SETTINGS_RUN_REASON when only the keys changed (both the stop kind zgoda),
     and tells the human what to do; None without such a file."""
     found, changed = [], []
@@ -2560,16 +2057,30 @@ def write_json(path, data, mode=None):
     os.replace(tmp, path)
 
 
+class TrustWriteError(Exception):
+    """The trust file (trust_file) cannot be written or removed; `path` is that file, `reason` the error. Neither a
+    ValueError nor an OSError, so save_access and the result of the deployment do not catch it on the way to
+    locked_main, which turns it into a refusal."""
+
+    def __init__(self, path, reason):
+        super().__init__(f"{path}: {reason}")
+        self.path, self.reason = path, reason
+
+
 def write_state(path, state):
-    """Write the state file without the trusted fields, and those fields (the ones set) to trust_file; a trust
-    file without any of them is removed."""
-    write_json(path, {key: value for key, value in state.items() if key not in TRUSTED})
+    """Write the trusted fields (the ones set) to trust_file first, or remove a trust file without any of them, and
+    only then the state file without the trusted fields. A trust file that cannot be written or removed raises
+    TrustWriteError before the state file is touched, so stan.json (with its zatrzymanie) stays as it was."""
     trusted = {key: state[key] for key in TRUSTED if state.get(key) is not None}
     where = trust_file(path)
-    if trusted:
-        write_json(where, trusted, 0o700)
-    elif os.path.exists(where):
-        os.remove(where)
+    try:
+        if trusted:
+            write_json(where, trusted, 0o700)
+        elif os.path.exists(where):
+            os.remove(where)
+    except OSError as exc:
+        raise TrustWriteError(where, exc) from exc
+    write_json(path, {key: value for key, value in state.items() if key not in TRUSTED})
 
 
 def now():
@@ -2755,7 +2266,7 @@ def lab_file(root, lab, path):
 
 
 def script_command(root, lab, script):
-    """The command hint of a laboratory script (scripts/autopilot.py, scripts/retro_pr.py): `python3 <script>` in
+    """The command hint of a laboratory script (scripts/autopilot.py): `python3 <script>` in
     the laboratory, `python3 <lab>/<script>` in an application repo."""
     return f"python3 {shlex.quote(lab_file(root, lab, script))}"
 
@@ -2904,8 +2415,8 @@ def start_attempt(run_):
     problems = start_problems(root, cid, run_.lab)
     problem = None
     if not problems:
-        # The sections the steps of the deployment trust, as the human agreed to them before the run (plan.md of
-        # wdrozenie, „Decyzje planu”): przygotowanie-wdrozenia compares them with HEAD.
+        # The sections the steps of the deployment trust, as the human agreed to them before the run:
+        # przygotowanie-wdrozenia compares them with HEAD.
         run_.save(**{START_SECTIONS: start_sections(root, cid)})
         problem = save_access(run_)
     with open(path, "w", encoding="utf-8") as fh:
@@ -2957,6 +2468,127 @@ def within_defaults(run_, record):
     writes = {absolute(entry) for entry in START_WRITES}
     return set(record.get("domeny") or []) <= defaults and \
         all(absolute(entry) in writes for entry in record_writes(record, run_.root))
+
+
+def guardrails_config_problem(run_):
+    """Why GUARDRAILS_APP of the app, already in the working tree before the installer of the guardrails, would take
+    the installation past the consent of the start: the installer takes its lists from that file instead of its
+    template (an earlier step, e.g. szkielet, may write it). The file passes when its protected holds every entry of
+    protected of GUARDRAILS_TEMPLATE, its secret_allow equals the template's, its allow_write is within START_WRITES
+    (absolute) and its allowed_domains within the template's; a missing key counts as the installer reads it (no
+    protected and no secret_allow as empty lists, no allowed_domains and no allow_write as the template's). A missing
+    file passes, and so does the file of an earlier run of the installer (a resume). The reason to stop with what
+    differs and what the session does, else None."""
+    path = os.path.join(run_.root, GUARDRAILS_APP)
+    if not os.path.lexists(path):
+        return None
+    keys = ("protected", "secret_allow", "allowed_domains", "allow_write")
+
+    def lists(text, defaults):
+        try:
+            data = json.loads(text) if text is not None else None
+        except ValueError:
+            data = None
+        if not isinstance(data, dict):
+            return None
+        found = {key: data.get(key, defaults.get(key, [])) for key in keys}
+        return found if all(isinstance(v, list) and all(isinstance(i, str) for i in v) for v in found.values()) \
+            else None
+
+    template = lists(read(os.path.join(run_.lab, GUARDRAILS_TEMPLATE)), {})
+    if template is None:
+        return (f"{GUARDRAILS_TEMPLATE} fabryki nie jest obiektem JSON z listami {', '.join(keys)}, więc nie "
+                f"da się sprawdzić {GUARDRAILS_APP} aplikacji przed instalatorem zabezpieczeń. Człowiek przywraca ten "
+                f"plik fabryki (git -C {run_.lab} checkout -- {GUARDRAILS_TEMPLATE}) i uruchamia: {run_.again()}")
+    app = lists(read(path), {"allowed_domains": template["allowed_domains"], "allow_write": template["allow_write"]})
+    if app is None:
+        problems = [f"plik nie jest obiektem JSON z listami napisów {', '.join(keys)}"]
+    else:
+        writes = {absolute(entry) for entry in START_WRITES}
+        missing = [entry for entry in template["protected"] if entry not in app["protected"]]
+        wider_writes = [entry for entry in app["allow_write"] if absolute(entry, run_.root) not in writes]
+        wider_domains = [host for host in app["allowed_domains"] if host not in template["allowed_domains"]]
+        problems = ([f"protected nie ma {', '.join(missing)}"] if missing else []) \
+            + ([f"secret_allow to {json.dumps(app['secret_allow'])}, a w szablonie "
+                f"{json.dumps(template['secret_allow'])}"] if app["secret_allow"] != template["secret_allow"] else []) \
+            + ([f"allow_write ma {', '.join(wider_writes)} poza {', '.join(START_WRITES)}"] if wider_writes else []) \
+            + ([f"allowed_domains ma {', '.join(wider_domains)} poza domenami szablonu"] if wider_domains else [])
+    if not problems:
+        return None
+    return (f"{GUARDRAILS_APP} aplikacji wychodzi poza zgodę startu na domyślne zabezpieczenia, a instalator "
+            f"{GUARDRAILS_INSTALLER} bierze listy z tego pliku zamiast z szablonu: {'; '.join(problems)}. Instalator "
+            f"i krok {GUARDRAILS_STEP} nie ruszyły. Pokaż człowiekowi różnicę (git log -p -- {GUARDRAILS_APP} i "
+            f"{run_.lab}/{GUARDRAILS_TEMPLATE}); potem usuń ten plik albo przywróć go do szablonu, zacommituj i "
+            f"uruchom: {run_.again()}")
+
+
+def guardrails_links_problem(run_):
+    """Why a folder the installer of the guardrails writes in (GUARDRAILS_INSTALL_FOLDERS) is not a plain folder of the
+    repo: the installer runs outside the sandbox and follows links, so a symbolic link an earlier step planted there
+    under any name (e.g. .gitignore to a key outside the repo, or a temporary file of the installer to a file outside
+    it) would copy a file from outside the repo into it or make the installer write outside it. Stops on every
+    symbolic link in those folders (in .claude/ at every depth, not into links), on such a folder it cannot list, on
+    .git, .git/info or .claude that is there but not a folder, and on such a folder whose real path leaves the real
+    path of the root. The installer itself refuses links too (it opens no file through a link); this stop comes first,
+    with the paths for the human. The reason to stop with what it found and what the session does, else None."""
+    root = os.path.realpath(run_.root)
+    found = []
+    for folder in (".git", ".git/info", ".claude"):
+        full = os.path.join(root, folder)
+        if os.path.lexists(full) and (os.path.islink(full) or not os.path.isdir(full)):
+            found.append(folder)
+    for folder, deep in GUARDRAILS_INSTALL_FOLDERS:
+        full = os.path.join(root, folder) if folder else root
+        if folder in found or not os.path.isdir(full):
+            continue
+        if os.path.commonpath([root, os.path.realpath(full)]) != root:
+            found.append(folder)
+            continue
+        # A folder it cannot list counts as found: the installer writes in it without listing it.
+        unlisted = lambda exc: found.append(os.path.relpath(exc.filename, root))  # noqa: E731
+        for here, dirs, files in os.walk(full, onerror=unlisted):
+            found += sorted(os.path.relpath(os.path.join(here, name), root) for name in dirs + files
+                            if os.path.islink(os.path.join(here, name)))
+            if not deep:
+                break
+    if not found:
+        return None
+    return (f"dowiązanie symboliczne, nie folder albo folder, którego nie da się wylistować, tam, gdzie pisze "
+            f"instalator zabezpieczeń {GUARDRAILS_INSTALLER}: {', '.join(found)}. Instalator działa poza piaskownicą, "
+            f"więc dowiązanie podłożone przez krok mogłoby skopiować plik spoza repo do repo albo zapis poza repo. Instalator i krok {GUARDRAILS_STEP} nie ruszyły. Pokaż "
+            f"człowiekowi te ścieżki (ls -ld {' '.join(found)}); potem usuń dowiązania, zacommituj i uruchom: "
+            f"{run_.again()}")
+
+
+def guardrails_install(run_):
+    """Right before every run or resume of the start step GUARDRAILS_STEP (lead, after step_commits): the installer of
+    the guardrails of the laboratory in the app repo, `<python> <lab>/GUARDRAILS_INSTALLER <root> --allow-write
+    START_WRITES`, without --allow-domain (the installer takes the default domains from its template): only the writes
+    and domains of the consent of the start. First guardrails_links_problem, so the installer follows no planted link,
+    and guardrails_config_problem, so a GUARDRAILS_APP the installer would merge cannot widen it. The run has its own log (GUARDRAILS_INSTALL_LOG) through logged_command, without run_.begin
+    and run_.end, so krok, log and sesja of the state file stay (a resume with --odpowiedz reads sesja; commands_attempt
+    would clear it). Its files go into the commit of the step (start_commit). The reason to stop (the installer and
+    its exit code first, the tail of its output, the command to run again), else None on exit 0."""
+    root = run_.root
+    path = log_path(root, run_.cid, GUARDRAILS_INSTALL_LOG, "log")
+    problem = guardrails_links_problem(run_) or guardrails_config_problem(run_)
+    if problem:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(problem + "\n")
+        say(f"krok {GUARDRAILS_STEP}: instalator zabezpieczeń nie ruszył, log {rel(root, path)}")
+        return problem
+    command = [sys.executable, os.path.join(run_.lab, GUARDRAILS_INSTALLER), root, "--allow-write", *START_WRITES]
+    say(f"krok {GUARDRAILS_STEP}: instalator zabezpieczeń przed krokiem, log {rel(root, path)}")
+    with open(path, "w", encoding="utf-8") as fh:
+        code = logged_command(run_, fh, command)
+    run_.save(pid_kroku=None)
+    say(f"krok {GUARDRAILS_STEP}: instalator zabezpieczeń zakończony (kod {code}), log {rel(root, path)}")
+    if code == 0:
+        return None
+    output = read(path) or ""
+    return (f"{GUARDRAILS_INSTALLER} (instalator zabezpieczeń przed krokiem {GUARDRAILS_STEP}) zakończył się kodem "
+            f"{code}" + (f":\n{tail(output)}" if output.strip() else "") + f"\nKrok {GUARDRAILS_STEP} nie ruszył. "
+            f"Usuń przyczynę z wyjścia instalatora (pełne wyjście: {rel(root, path)}) i uruchom: {run_.again()}")
 
 
 # The start of an application project (--start).
@@ -3192,7 +2824,7 @@ def github_attempt(run_):
 
 
 def final_list_attempt(run_):
-    """lista (I-11): goes on with `git push -u origin <main branch>` when the committed start.md has the section
+    """lista: goes on with `git push -u origin <main branch>` when the committed start.md has the section
     ## Lista końcowa; else a stop with rodzaj: lista and what the session shows the human, writes and commits."""
     early = no_main(run_, "lista")
     if early:
@@ -3263,7 +2895,15 @@ def start_trace(root, step):
                 return f"sekcja {heading} w {START_FILE} nie ma żadnej linii - …"
         return None
     if step == TEST_PLAN_STEP:
-        return missing(TEST_PLAN_FILE) or step_programs_problem(read(os.path.join(root, START_FILE)))
+        problem = missing(TEST_PLAN_FILE)
+        if problem:
+            return problem
+        try:
+            blocked = list(guardrails_programs())
+        except ValueError as err:
+            return str(err)
+        manager = package_manager(root)
+        return step_programs_problem(read(os.path.join(root, START_FILE)), blocked + ([manager] if manager else []))
     if step == "zabezpieczenia":
         problem = missing(".claude/settings.json") or missing(GUARDRAILS_APP) or missing("CLAUDE.md")
         if problem:
@@ -3290,18 +2930,41 @@ def ci_workflow_missing(root):
     return "brak workflow CI uruchamianego przy wysłaniu (plik .github/workflows/*.yml albo *.yaml ze słowem push)"
 
 
-def step_programs_problem(start_text):
+def step_program(line):
+    """The program of a line - … of STEP_PROGRAMS: its first field (up to the first comma or colon), without
+    backticks and asterisks, its first word."""
+    field = re.split(r"[,:]", line[2:] if line.startswith("- ") else line, maxsplit=1)[0]
+    words = field.replace("`", " ").replace("*", " ").split()
+    return words[0] if words else ""
+
+
+def step_programs_problem(start_text, blocked=()):
     """Why the trace of the programs of the steps (STEP_PROGRAMS of start.md, written by plan-testow in the sandbox
-    of the steps of the slices) stops the step: no line - …, or lines with SANDBOX_MISSING, listed with what the
-    human does; None when every line says the program works."""
+    of the steps of the slices) stops the step, listed with what the human does; None when every line passes.
+    It stops on: no line - …; a line with PROGRAM_MISSING; a line with SANDBOX_MISSING or STEP_SANDBOX; a line with
+    TEST_SANDBOX_MISSING whose program (step_program) is in `blocked` (the programs of the guardrails and the package
+    manager, which are never test programs). A line with TEST_SANDBOX_MISSING of any other program passes: its tests
+    run in the main session."""
     lines = [line.strip() for line in section(start_text, STEP_PROGRAMS) if line.startswith("- ")]
     if not lines:
         return f"sekcja {STEP_PROGRAMS} w {START_FILE} nie ma żadnej linii - …"
-    missing = [line for line in lines if SANDBOX_MISSING in line]
-    if not missing:
+    names = {name.lower() for name in blocked if name}
+    absent = [line for line in lines if PROGRAM_MISSING in line]
+    failing = [line for line in lines if line not in absent and (
+        SANDBOX_MISSING in line or STEP_SANDBOX in line
+        or (TEST_SANDBOX_MISSING in line and step_program(line).lower() in names))]
+    if not absent and not failing:
         return None
-    return (f"programy kroków {SANDBOX_MISSING} (krok {TEST_PLAN_STEP} ma dostęp kroków claude -p kawałków, więc "
-            f"kroki kawałków też ich nie uruchomią): {' | '.join(missing)}. Sesja pokazuje człowiekowi te linie "
+    parts = []
+    if absent:
+        parts.append(f"programy kroków z wynikiem {PROGRAM_MISSING} (programu nie ma w piaskownicy kroków "
+                     f"kawałków): {' | '.join(absent)}")
+    if failing:
+        parts.append(f"programy kroków {SANDBOX_MISSING} (krok {TEST_PLAN_STEP} ma dostęp kroków claude -p "
+                     "kawałków, więc kroki kawałków też ich nie uruchomią; program zabezpieczeń albo menedżer "
+                     f"pakietów z wynikiem {TEST_SANDBOX_MISSING} też tu jest, bo nie jest programem testów): "
+                     f"{' | '.join(failing)}")
+    return ("; ".join(parts) + ". Sesja pokazuje człowiekowi te linie "
             "z błędem i nie zmienia ich sama: linia działa powstaje tylko w tym kroku, który uruchamia program "
             "w piaskownicy kroków. Fabryka nie poszerza sama piaskownicy: człowiek decyduje, co zrobić (np. inny "
             "program albo inna technologia, domena przez linię zgoda: domena <host> w ## Zgody w "
@@ -3619,7 +3282,7 @@ def evals_args(paths, mapping=EVALS_FOR, files=EVALS_FILES):
 
 
 def evals_attempt(run_):
-    """testy-fabryki (E6): only the factory tests that check the files the branch changes; skipped in an
+    """testy-fabryki: only the factory tests that check the files the branch changes; skipped in an
     application repo."""
     root, cid = run_.root, run_.cid
     early = app_skip(run_, "testy-fabryki") or no_main(run_, "testy-fabryki")
@@ -3660,7 +3323,7 @@ def results_attempt(run_):
 
 
 def sync_attempt(run_):
-    """synchronizacja-skilli (P21): rsync of every skill the branch changes into <config_dir()>/skills, without
+    """synchronizacja-skilli: rsync of every skill the branch changes into <config_dir()>/skills, without
     asking and without reading stdin; the commands (and the skipped names) go to the field `synchronizacja`
     of the state file, for the list at the end of the run. Skipped in an application repo."""
     root, cid = run_.root, run_.cid
@@ -3692,51 +3355,12 @@ def sync_names(run_, step, names):
     return result
 
 
-def sync_after_pr_attempt(run_):
-    """synchronizacja-po-pr (P21): rsync of every skill that the merges of the PR step changed, from
-    `git diff --name-only <master before the PR step>..HEAD -- skills/` (the PR step pulls master with
-    git pull --ff-only); skipped when they changed no skill, and in an application repo. Fails when HEAD is not
-    origin/<main branch> after a fetch (the pull was skipped or failed), so merged skills are not passed over.
-    Asks nothing, reads no stdin."""
-    root = run_.root
-    early = app_skip(run_, SYNC_AFTER_PR) or no_main(run_, SYNC_AFTER_PR)
-    if early:
-        return early
-    main = run_.main
-    record = run_.state.get("krok_pr")
-    before = record.get("master_przed") if isinstance(record, dict) else None
-    if not before:
-        return logged(run_, SYNC_AFTER_PR, 1, ["brak commita mastera sprzed kroku PR (pole krok_pr.master_przed "
-                                               "w pliku stanu), więc nie wiadomo, co zmieniły scalenia"])
-    fetch = ["git", "fetch", "-q", "origin"]
-    fetched = run(fetch, root)
-    if fetched.returncode != 0:
-        return failed_check(run_, SYNC_AFTER_PR, shlex.join(fetch), fetched)
-    heads = [run(["git", "rev-parse", "-q", "--verify", ref], root).stdout.strip()
-             for ref in ("HEAD", f"origin/{main}")]
-    if not heads[0] or heads[0] != heads[1]:
-        return logged(run_, SYNC_AFTER_PR, 1, [f"lokalny HEAD {heads[0][:7] or '—'} nie równa się origin/{main} "
-                                               f"{heads[1][:7] or '—'} (krok PR nie wyrównał gałęzi {main}), więc "
-                                               "skille scalone przez krok PR nie są zsynchronizowane; wyrównaj "
-                                               f"{main} (git pull --ff-only) i uruchom autopilota ponownie"])
-    cmd = ["git", "diff", "--name-only", "--no-renames", f"{before}..HEAD", "--", "skills/"]
-    diff = run(cmd, root)
-    if diff.returncode != 0:
-        return failed_check(run_, SYNC_AFTER_PR, shlex.join(cmd), diff)
-    names = skill_names(diff.stdout.splitlines())
-    if not names:
-        return skipped(run_, SYNC_AFTER_PR, "pominięty, scalenia kroku PR nie zmieniły skilli w skills/.")
-    return sync_names(run_, SYNC_AFTER_PR, names)
-
-
 def run_record_attempt(run_):
-    """zapis-przebiegu (P12, P22): the sections `## Wynik kroku PR` (from the field krok_pr and retro.md),
-    `## Zatrzymania po archiwum` (the lines of the field zatrzymania_po_archiwum, which the main session may
-    have filled in) and `## Pliki chronione` (W10: the commit, the files and the diff of the field pliki_chronione,
+    """zapis-przebiegu: the sections `## Zatrzymania po archiwum` (the lines of the field zatrzymania_po_archiwum, which the main session may
+    have filled in) and `## Pliki chronione` (the commit, the files and the diff of the field pliki_chronione,
     or `Brak.`) of context/przebiegi/<id>.md, all written anew, then a commit of that file alone on
     the main branch (skipped when it did not change) and git push. Not on the main branch: the step fails
-    without writing. In an application repo every proposal of retro.md waits for the human (the PR step is
-    skipped)."""
+    without writing."""
     root, cid = run_.root, run_.cid
     early = no_main(run_, RUN_RECORD)
     if early:
@@ -3746,13 +3370,9 @@ def run_record_attempt(run_):
     if branch != run_.main:
         return logged(run_, RUN_RECORD, 1, [f"bieżąca gałąź to {branch or 'odłączony HEAD'}, a zapis przebiegu "
                                             f"idzie na {run_.main}"])
-    text = read(retro_path(root, cid))
-    proposals = retro_pr.parse_proposals(text) if text is not None else []
     title = RUN_TITLE.format(id=cid)
     path = os.path.join(root, where)
-    body = with_section(read(path), title, PR_RESULT,
-                        pr_result_lines(run_.state.get("krok_pr"), proposals, run_.app))
-    body = with_section(body, title, STOPS_AFTER, list(run_.state.get("zatrzymania_po_archiwum") or []) or [NOTHING])
+    body = with_section(read(path), title, STOPS_AFTER, list(run_.state.get("zatrzymania_po_archiwum") or []) or [NOTHING])
     body = with_section(body, title, PROTECTED_SECTION, protected_lines(run_.state.get(PROTECTED_FIELD)))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
@@ -3762,14 +3382,6 @@ def run_record_attempt(run_):
         commands.append(["git", "commit", "-q", "-m", f"docs({cid}): przebieg autopilota", "--", where])
     commands.append(["git", "push"])
     return commands_attempt(run_, RUN_RECORD, commands)
-
-
-def retro_pr_program(lab, env=None):
-    """The retrospective PR step program: $AUTOPILOT_RETRO_PR, or python3 scripts/retro_pr.py of the
-    laboratory."""
-    env = os.environ if env is None else env
-    program = env.get("AUTOPILOT_RETRO_PR")
-    return [program] if program else [sys.executable, os.path.join(lab, RETRO_PR)]
 
 
 def retro_path(root, cid):
@@ -3783,120 +3395,56 @@ def proposal_field(block, name):
     return match.group(1) if match and match.group(1) else None
 
 
-def pr_states(output):
-    """{n: the rest of the line} of the `P<n>: …` lines retro_pr.py prints."""
-    states = {}
-    for line in (output or "").splitlines():
-        match = PR_LINE.match(line)
+def parse_proposals(text):
+    """The proposals of `## Propozycje` of retro.md: dicts with n, title and block (the lines under the heading)."""
+    proposals = []
+    for line in section(text, "## Propozycje"):
+        match = PROPOSAL.match(line)
         if match:
-            states[int(match.group(1))] = match.group(2)
-    return states
+            proposals.append({"n": int(match.group(1)), "title": match.group(2).strip(), "lines": []})
+        elif line.startswith("#"):
+            proposals.append(None)
+        elif proposals and proposals[-1] is not None:
+            proposals[-1]["lines"].append(line)
+    return [dict(n=p["n"], title=p["title"], block="\n".join(p["lines"]).strip()) for p in proposals if p]
 
 
-def proposal_state(text):
-    """The state of a proposal for the human, from the rest of its `P<n>: …` line; None without a line.
-    A skipped proposal takes the state of its existing PR; an error and anything unknown stay verbatim."""
-    if text is None:
-        return None
-    if text.startswith("scalony"):
-        return "scalona"
-    if text.startswith("czeka na potwierdzenie odrzucenia"):
-        return "czeka na potwierdzenie odrzucenia przez człowieka"
-    if text.startswith("czeka na decyzję człowieka"):
-        return "czeka na decyzję człowieka"
-    if text.startswith("czeka na człowieka"):
-        return "PR czeka na człowieka"
-    if text.startswith("pominięty"):
-        match = SKIPPED_STATE.search(text)
-        state = {"MERGED": "scalona", "OPEN": "PR czeka na człowieka", "CLOSED": "czeka na decyzję człowieka"}
-        return state.get(match.group(1) if match else "", text)
-    return text
-
-
-def proposal_lines(proposals, output, code, cid, retro_command=f"python3 {RETRO_PR}", app=False):
-    """One line per proposal: `P<n>. <title> — liczby: <…> — rekomendacja: <…> — <state>`; the parts of the
-    fields a proposal lacks are left out. Without a `P<n>:` line the step did not start (or did not get to
-    the proposal), with the command to run it again (retro_command and the change id). In an application repo
-    (app) every proposal has the state APP_PROPOSAL, because the PR step is skipped."""
-    states = pr_states(output)
-    again = f"{retro_command} {cid}"
+def proposal_lines(proposals, app=False):
+    """One line per proposal: `P<n>. <title> — liczby: <…> — rekomendacja: <…> — miejsce docelowe: <…>`; the
+    parts of the fields a proposal lacks are left out. The main session decides what happens to each
+    (docs/sesja-glowna.md, „Propozycje retrospektywy”). In an application repo (app) every proposal ends with
+    APP_PROPOSAL."""
     lines = []
     for proposal in proposals:
-        state = APP_PROPOSAL if app else proposal_state(states.get(proposal["n"]))
-        if state is None:
-            what = "krok PR nie zaczął" if not states else "krok PR nie wypisał stanu tej propozycji"
-            state = f"{what} (kod {code}); uruchom ponownie: {again}"
         parts = [f"P{proposal['n']}. {proposal['title']}"]
-        numbers = proposal_field(proposal["block"], "Liczby")
-        recommendation = proposal_field(proposal["block"], "Rekomendacja")
-        if numbers:
-            parts.append(f"liczby: {numbers}")
-        if recommendation:
-            parts.append(f"rekomendacja: {recommendation}")
-        parts.append(state)
+        for name, label in (("Liczby", "liczby"), ("Rekomendacja", "rekomendacja"),
+                            ("Miejsce docelowe", "miejsce docelowe")):
+            value = proposal_field(proposal["block"], name)
+            if value:
+                parts.append(f"{label}: {value}")
+        if app:
+            parts.append(APP_PROPOSAL)
         lines.append(" — ".join(parts))
     return lines
 
 
-def retro_step(run_):
-    """krok-pr after the push (R8, R9): run the retrospective PR step once (no new run, stdin from
-    /dev/null). The commit of master before it, its exit code and its `P<n>: …` lines go to the field
-    `krok_pr` of the state file, for synchronizacja-po-pr, zapis-przebiegu and the list at the end of the
-    run. Asks nothing; the step counts as done whatever its exit code, because a new run would repeat the
-    paid sessions of the author and the reviewer. Skipped in an application repo: retro_pr.py works only on
-    the laboratory."""
-    root, cid = run_.root, run_.cid
-    early = app_skip(run_, RETRO_PR_STEP)
-    if early:
-        return early
-    path = retro_path(root, cid)
-    where = rel(root, path)
-    text = read(path)
-    proposals = retro_pr.parse_proposals(text) if text is not None else []
-    found = f"{len(proposals)} propozycji w {where}" if text is not None else f"brak pliku {where}"
-    head = ["git", "rev-parse", "HEAD"]
-    before = run(head, root)
-    if before.returncode != 0:
-        return failed_check(run_, RETRO_PR_STEP, shlex.join(head), before)
-    # An interrupted run (kod None) may have merged already: its master commit stays, so
-    # synchronizacja-po-pr also sees those merges.
-    old = run_.state.get("krok_pr")
-    kept = old.get("master_przed") if isinstance(old, dict) and old.get("kod") is None else None
-    record = {"master_przed": kept or before.stdout.strip(), "kod": None, "wynik": []}
-    run_.save(krok_pr=record)
-    say(f"krok PR: {found}; krok może trwać długo i kosztować: płatne sesje claude -p autora, recenzenta i "
-        "jednej poprawki po testach (do ok. 8 USD na propozycję z Miejscem docelowym w skills/ albo "
-        "context/foundation/lessons.md); krok niczego nie scala sam i nie uruchamia płatnych testów skilli, każdy PR "
-        "czeka na człowieka (decyzja człowieka 2026-11-02)")
-    command, code, output = commands_attempt(run_, RETRO_PR_STEP, [retro_pr_program(run_.lab) + [cid]])
-    run_.save(krok_pr=dict(record, kod=code, wynik=[line.rstrip() for line in output.splitlines()
-                                                     if PR_LINE.match(line)]))
-    if code != 0:
-        say(f"krok PR zakończył się kodem {code}; ponowne uruchomienie: "
-            f"{script_command(root, run_.lab, RETRO_PR)} {cid}")
-    return command, 0, output
-
-
 def end_list(run_):
-    """The list at the end of the run (P25), after zapis-przebiegu: one line per proposal of retro.md with its
-    state from the PR step, the questions decided by the agent, the stops and self-repairs (the lines of
-    `## Zatrzymania autopilota` of the archived change.md and of `## Zatrzymania po archiwum` of
-    context/przebiegi/<id>.md), the commands of the skill sync (before the archive and after the merges), and the
-    protected files the autopilot wrote, with their diff (W10)."""
+    """The list at the end of the run, after zapis-przebiegu: one line per proposal of retro.md, the
+    questions decided by the agent, the stops and self-repairs (the lines of `## Zatrzymania autopilota` of the
+    archived change.md and of `## Zatrzymania po archiwum` of context/przebiegi/<id>.md), the commands of the skill
+    sync before the archive, and the protected files the autopilot wrote, with their diff."""
     root, cid = run_.root, run_.cid
     path = retro_path(root, cid)
     where = rel(root, path)
     text = read(path)
-    proposals = retro_pr.parse_proposals(text) if text is not None else []
-    record = run_.state.get("krok_pr") if isinstance(run_.state.get("krok_pr"), dict) else {}
+    proposals = parse_proposals(text) if text is not None else []
     if text is None:
         say(f"lista propozycji retrospektywy: brak pliku {where}.")
     elif not proposals:
         say(f"lista propozycji retrospektywy: {where} nie ma propozycji.")
     else:
         say(f"lista propozycji retrospektywy ({where}), jedna linia na propozycję:")
-        print("\n".join(proposal_lines(proposals, "\n".join(record.get("wynik") or []), record.get("kod"), cid,
-                                       script_command(root, run_.lab, RETRO_PR), run_.app)), flush=True)
+        print("\n".join(proposal_lines(proposals, run_.app)), flush=True)
     agent_decisions(root, cid)
     stops_list(root, cid)
     sync_list(run_.state)
@@ -3918,7 +3466,7 @@ def stops_list(root, cid):
 
 
 def agent_decisions(root, cid):
-    """The list of the change's questions decided by the agent (R15), after the list of proposals: one line
+    """The list of the change's questions decided by the agent, after the list of proposals: one line
     `<rodzaj> — <pytanie> — <rekomendacja>` per line of `## Pytania do człowieka` with `rozstrzygnął: agent`,
     read through pomiar.parse_questions from change_md (the archived change.md after the archive). Without
     such questions one line says so; a bad question line gives one line with its number and does not stop
@@ -3958,7 +3506,7 @@ def change_questions(root, cid, path=None):
 
 
 def step_decisions(root, cid, step, path=None):
-    """The line at the boundary of an accepted `claude -p` step (P20, D-217), before `dalej: …`:
+    """The line at the boundary of an accepted `claude -p` step (D-217), before `dalej: …`:
     `krok <step>: agent rozstrzygnął sam: <n>[ — <question>; …]`, from change.md, or from `path` (start.md in the
     start). A missing file or a bad question line gives the same start with the problem instead of the questions;
     it does not stop the autopilot."""
@@ -3993,7 +3541,7 @@ def checkout_main_attempt(run_):
 
 def branch_moved(root, cid, tip, back, again):
     """None when the branch cid still ends on tip, the commit the CI of the branch checked; else the reason of a stop
-    that names the later commits (impl-review-4 F3 of paczka-1-1): nothing merges, so no commit stays out of the
+    that names the later commits: nothing merges, so no commit stays out of the
     merge without a line and none merges unchecked."""
     now_ = run(["git", "rev-parse", "--verify", "-q", f"refs/heads/{cid}"], root)
     if now_.returncode == 0 and now_.stdout.strip() == tip:
@@ -4010,8 +3558,7 @@ def merge_attempt(run_):
     glowna_przed_scaleniem of the state file (wynik-wdrozenia names it as the version that runs after a failed
     deploy). A new run after the branch is already in HEAD keeps the commit saved before. When the CI of the branch
     passed on a commit (BRANCH_CI_SHA) and the branch now ends on another one (the commit of archiwum, a later commit,
-    a rebase), the CI of the branch runs again on the commit that merges (impl-review-2 F5 of paczka-1-1, decision of
-    the human): its workflow with BRANCH_CI_MARK in that commit, `git push -u origin <id>` and the wait
+    a rebase), the CI of the branch runs again on the commit that merges: its workflow with BRANCH_CI_MARK in that commit, `git push -u origin <id>` and the wait
     (branch_ci_wait), all in the log of the step; a failure, that commit without the marker, or a branch that moved
     during the wait (branch_moved) stops the step before the merge. Returns (command, code, output) or, at a stop on
     the CI, (command, 1, the reason, None)."""
@@ -4030,7 +3577,7 @@ def merge_attempt(run_):
     merged = run(["git", "merge-base", "--is-ancestor", cid, "HEAD"], root).returncode == 0
     if not (merged and run_.state.get(MAIN_BEFORE)):
         run_.save(**{MAIN_BEFORE: before.stdout.strip()})
-    # impl-review-3 F7 of paczka-1-1: with the CI of the branch the merge takes the commit it checked, not the name of
+    # With the CI of the branch the merge takes the commit it checked, not the name of
     # the branch, so a commit that lands on the branch during the wait does not merge unchecked.
     merge = ["git", "merge", "--ff-only", tip or cid]
     if not checked or tip == checked:
@@ -4071,7 +3618,7 @@ def merge_attempt(run_):
     return shlex.join(merge), code, read(path) or ""
 
 
-# The step przygotowanie-wdrozenia (plan.md of wdrozenie, phase 4).
+# The step przygotowanie-wdrozenia.
 
 # The sections of sekcje_startu, with where they are, for the reason of a stop.
 SECTION_WHERE = {"zgody": f"{CONSENTS} w context/changes/{{id}}/change.md", "dostepy": f"{ACCESS} w CLAUDE.md",
@@ -4228,8 +3775,7 @@ def write_new(target, data):
 
 def tree_problem(root, path):
     """Why the target `path` of a protected file is not as in HEAD before the step writes it: a change outside the
-    commit, a file HEAD does not have (also an ignored one) or a file of HEAD missing from the tree (impl-review-2 F1,
-    option C); None when the tree has the file of HEAD or neither has it."""
+    commit, a file HEAD does not have (also an ignored one) or a file of HEAD missing from the tree; None when the tree has the file of HEAD or neither has it."""
     full = os.path.join(root, path)
     head = blob(root, path)
     if not os.path.lexists(full):
@@ -4241,7 +3787,7 @@ def tree_problem(root, path):
 
 
 def written_stop(run_, paths, why):
-    """The reason to stop after a failed write or commit with `paths` already written (impl-review-2 F1, option C):
+    """The reason to stop after a failed write or commit with `paths` already written:
     no automatic rollback, the list of the files and the command for the human that puts them back as in HEAD (each
     target was as in HEAD, or absent from both, before the write: tree_problem)."""
     if not paths:
@@ -4293,7 +3839,7 @@ def yaml_value(text):
 
 
 def ci_secret_problems(text, tools):
-    """The problems of the secrets of one CI file (W8), each one line; [] when every use of a secret is allowed. A use
+    """The problems of the secrets of one CI file, each one line; [] when every use of a secret is allowed. A use
     (SECRETS_WORD after ${{, or the key secrets:) is allowed only in the map env: or with: of an item of the list steps:
     of a job (jobs.<job>.steps[].env|with.<name>), counted by the indent, and only when that step has uses: whose value
     without @<version> is one of `tools`, or a one-line run: that starts with one of `tools` and has none of RUN_JOINS.
@@ -4448,7 +3994,7 @@ def only_domains_differ(run_, path, keys):
 
 
 def secret_attempt(run_, lines, access):
-    """The secrets of the lines `- sekret: <command> < <name of ## Dostępy>` (W4): every command split by shlex, run
+    """The secrets of the lines `- sekret: <command> < <name of ## Dostępy>`: every command split by shlex, run
     without a shell in the repo, with the value of the file of its access on stdin (one end \\n or \\r\\n cut) and its
     stdout and stderr to DEVNULL. Before any command runs, each line needs an access whose path is absolute, outside
     the repo and an existing file. The log <stamp>-przygotowanie-wdrozenia-sekrety.log has only `$ <command>`, its
@@ -4507,7 +4053,7 @@ def secret_attempt(run_, lines, access):
 
 
 def prep_attempt(run_):
-    """przygotowanie-wdrozenia (W2, W4, W6–W8, W10): the checks first, in the order of plan.md of wdrozenie (phase 4),
+    """przygotowanie-wdrozenia: the checks first, in this order,
     and the first that fails stops the step before anything is written; then the protected files and the domains of
     the consents, one commit of only those paths, the consent to the merge and the field pliki_chronione, last the
     secrets. Nothing to do (no consent of the kinds domena, plik and sekrety and no file in chronione/): the log line
@@ -4569,7 +4115,7 @@ def prep_run(run_, note):
     if status_text.strip():
         return (f"{where}/ ma zmiany poza commitem, a wpisuje się tylko treść widzianą przez przegląd kodu:\n"
                 f"{tail(status_text)}"), None
-    # git status hides the ignored files, so the files of chronione/ must also be in the commit (impl-review F4).
+    # git status hides the ignored files, so the files of chronione/ must also be in the commit.
     tracked = set(run(["git", "ls-files", "-z", "--", where], root).stdout.split("\0"))
     outside = [path for path in files if f"{where}/{path}" not in tracked]
     if outside:
@@ -4638,7 +4184,7 @@ def prep_run(run_, note):
     written = []
     try:
         for path in files:
-            # The committed blob, the one the code review saw, and not the file of the tree (impl-review F4).
+            # The committed blob, the one the code review saw, and not the file of the tree.
             data = blob(root, f"{where}/{path}")
             if data is None:
                 return written_stop(run_, written, f"{where}/{path} nie jest w commicie HEAD, więc nie wiadomo, czy "
@@ -4657,15 +4203,17 @@ def prep_run(run_, note):
                 new, added = with_hosts(text, keys, hosts)
                 if added:
                     os.makedirs(os.path.dirname(os.path.join(root, path)), exist_ok=True)
-                    # A new file and os.replace, so a failed write leaves the old file whole (impl-review-3 F7).
+                    # A new file and os.replace, so a failed write leaves the old file whole.
                     write_new(os.path.join(root, path), new.encode("utf-8"))
                     written.append(path)
                     note(f"domeny dopisane do {path}: {', '.join(added)}", show=True)
     except OSError as exc:
-        # No automatic rollback: the human gets the files and the command (impl-review-2 F1, option C).
+        # No automatic rollback: the human gets the files and the command.
         return written_stop(run_, written, f"błąd zapisu plików chronionych: {exc}"), None
     paths = sorted(set(written))
-    message = f"chore({cid}): pliki chronione po zgodzie"
+    # No scope: the step writes these files after the human's consent, so they are not files of the plan that
+    # rule 6 of validate_change.py checks; the id stays in the subject for `git log --grep` of the retro.
+    message = f"chore: pliki chronione po zgodzie ({cid})"
     if not paths:
         note("bez zmian, więc bez commita", show=True)
     else:
@@ -4712,7 +4260,7 @@ def prep_run(run_, note):
 
 
 def protected_lines(record):
-    """The lines of ## Pliki chronione of context/przebiegi/<id>.md (W10): the commit, the files and their diff in a
+    """The lines of ## Pliki chronione of context/przebiegi/<id>.md: the commit, the files and their diff in a
     block, or `Brak.`."""
     if not (isinstance(record, dict) and record.get("commit")):
         return [NOTHING]
@@ -4732,7 +4280,7 @@ def protected_list(state):
     print((record.get("roznica") or "").rstrip("\n"), flush=True)
 
 
-# The step wynik-wdrozenia (plan.md of wdrozenie, phase 5).
+# The step wynik-wdrozenia.
 
 def gh_program(env=None):
     """The program gh of wynik-wdrozenia: [$AUTOPILOT_GH], or [gh] from PATH."""
@@ -4801,7 +4349,7 @@ def before_version(run_):
 
 
 def deploy_message(run_, parts, done, version):
-    """The message for the human after a failed CI run of the pushed commit (W12): what failed (job and step), what
+    """The message for the human after a failed CI run of the pushed commit: what failed (job and step), what
     the autopilot did, which version runs, that the migrations of the database stay and that the next push deploys
     the main branch again."""
     failed = ", ".join(f"job {job}, krok {step}" if step else f"job {job}" for job, step in parts)
@@ -4811,7 +4359,7 @@ def deploy_message(run_, parts, done, version):
 
 
 def deploy_result_attempt(run_):
-    """wynik-wdrozenia (W12) after the push: skipped (log line NO_DEPLOY, exit 0) without ## Wdrożenie in CLAUDE.md of
+    """wynik-wdrozenia after the push: skipped (log line NO_DEPLOY, exit 0) without ## Wdrożenie in CLAUDE.md of
     the main branch; else deploy_result_run with one log of the step. Returns (command, code, output or the reason to
     stop, None)."""
     name = RESULT_STEP
@@ -5090,8 +4638,6 @@ def command_steps(cid):
         "merge": merge_attempt,
         "push": git_step("push", ["git", "push"]),
         RESULT_STEP: deploy_result_attempt,
-        RETRO_PR_STEP: retro_step,
-        SYNC_AFTER_PR: sync_after_pr_attempt,
         RUN_RECORD: run_record_attempt,
     }
 
@@ -5100,7 +4646,7 @@ def claude_step(run_, name, answer=None):
     """One `claude -p` run of a step; returns (reason to stop or None, denials) of judge_step. The snapshot
     comes from the state file when it was taken at this step's first start (a new run, also in a new
     invocation, keeps it), else it is taken now. With `answer` the run resumes the step's session (field
-    `sesja`) with the human's answer (P6) and its log is <stamp>-<step>-wznowienie.jsonl. The state file gets
+    `sesja`) with the human's answer and its log is <stamp>-<step>-wznowienie.jsonl. The state file gets
     krok, log, sesja and the snapshot before the process starts and pid_kroku right after."""
     root, cid = run_.root, run_.cid
     turns, prompt = run_.claude_steps[name]
@@ -5200,7 +4746,7 @@ def commit_paths(run_, paths, message, what):
 
 
 def record_costs(run_, name, session):
-    """P23: the row of the session in the costs table, committed by its path: context/changes/<id>/
+    """The row of the session in the costs table, committed by its path: context/changes/<id>/
     koszty-krokow.md for the steps before archiwum, the section `## Koszty kroków` of context/przebiegi/<id>.md
     for archiwum. Without the change folder (a step before archiwum) nothing is written, so the folder does not
     come back after the archive. In the start: the section `## Koszty kroków` of start.md (title `# Start
@@ -5246,7 +4792,7 @@ def accept(run_, name):
 
 
 def record_stop(run_, name, reason, done=NOT_YET, effect=NOT_YET, limit=REASON_CHARS):
-    """The stop line of a step (P12). A step up to archiwum: at the end of `## Zatrzymania autopilota` of
+    """The stop line of a step. A step up to archiwum: at the end of `## Zatrzymania autopilota` of
     context/changes/<id>/change.md, committed by its path (on a branch other than <id> it stays uncommitted).
     A step after archiwum, and archiwum once the folder moved: at the end of the field zatrzymania_po_archiwum
     of the state file, not in a file of the repo, so the tree on master stays clean; zapis-przebiegu writes
@@ -5310,7 +4856,7 @@ def stop(run_, name, reason, kind=None):
         placeholder = "'<odpowiedź>'" if run_.start else '"<odpowiedź>"'
         say(f"wznowienie kroku {name} z odpowiedzią człowieka: {again} --odpowiedz {placeholder}")
     if reason.startswith((SANDBOX_EXCEPTION_REASON, SETTINGS_RUN_REASON)):
-        # impl-review-3 F5 of paczka-1-1: --przyjmij does not help here; the human removes the exception.
+        # --przyjmij does not help here; the human removes the exception.
         pass
     elif run_.start:
         if kind == KIND_CONSENT:
@@ -5336,16 +4882,22 @@ def finished(run_):
     return 0
 
 
+PRE_ARCHIVE_RULES = "1,2,3,4,6,7"
+
+
 def manual_problem(run_):
-    """A12: the reason to stop before archiwum while plan.md has an unconfirmed `#### Manual` row: validate_change.py
-    of the laboratory with --rules 7 on the change of the repo exits other than 0 (also 2, without `## Progress`),
-    with its output; None on exit 0 (A13)."""
-    cmd = ["python3", os.path.join(run_.lab, VALIDATE), run_.cid, "--repo", run_.root, "--rules", "7"]
+    """The reason to stop before archiwum while the change is not finished apart from the verifier report:
+    validate_change.py of the laboratory with every rule but 5 on the change of the repo exits other than 0 (also 2,
+    on missing data), with its output; None on exit 0. A ticked row without its SHA or Observed entry stops
+    here, before the archive step pays for the verifier."""
+    cmd = ["python3", os.path.join(run_.lab, VALIDATE), run_.cid, "--repo", run_.root, "--rules", PRE_ARCHIVE_RULES]
     result = run(cmd, run_.root)
     if result.returncode == 0:
         return None
-    return (f"wiersze #### Manual planu nie są potwierdzone (validate_change.py --rules 7, kod {result.returncode}):\n"
-            f"{tail(result.stdout + result.stderr)}\nodhacz je z SHA sprawdzonego commita, zacommituj plan.md i "
+    return (f"zmiana nie jest gotowa do archiwum (validate_change.py --rules {PRE_ARCHIVE_RULES}, "
+            f"kod {result.returncode}):\n"
+            f"{tail(result.stdout + result.stderr)}\npopraw to, co wymieniają linie R<n> (np. odhacz wiersz #### Manual z SHA "
+            "sprawdzonego commita i dopisz jego wpis Observed w raporcie przebiegu), zacommituj i "
             "uruchom autopilota ponownie (--przyjmij nie uruchamia archiwum)")
 
 
@@ -5379,7 +4931,7 @@ def merge_consent(run_, files):
 
 
 def merge_reason(run_):
-    """A11: why the branch may not merge yet: it changes a file that widens the steps without a matching consent of
+    """Why the branch may not merge yet: it changes a file that widens the steps without a matching consent of
     the human (field zgoda_scalenia), or git cannot tell; None without such files or with that consent."""
     files, problem = merge_files(run_)
     if problem:
@@ -5394,7 +4946,7 @@ def merge_reason(run_):
 
 
 def merge_problem(run_):
-    """A11, A22: the reason to stop before archiwum (merge_reason) with what the human does; None when the branch
+    """The reason to stop before archiwum (merge_reason) with what the human does; None when the branch
     may merge."""
     reason = merge_reason(run_)
     if reason is None:
@@ -5404,7 +4956,7 @@ def merge_problem(run_):
 
 
 def consent_line_problem(run_, step="archiwum", what="zgoda na scalenie: człowiek, <pliki>"):
-    """A22: why --przyjmij after a stop on the files of the merge (or after a stop of the kind zgoda or domena)
+    """Why --przyjmij after a stop on the files of the merge (or after a stop of the kind zgoda or domena)
     cannot record the consent yet: the last stop line of `step` in the trace of the run (change.md, in the start
     start.md) committed on its branch (<id>, in the start the main branch) has no `zrobiono` (who agreed); None when
     it has."""
@@ -5447,7 +4999,7 @@ def lead(run_, answer=None, resumed=None):
         run_.save(nastepny=name)
         denials, kind = [], None
         if name == "archiwum" and not run_.start:
-            # Before the process of archiwum (A11, A12); a resume with the human's answer repeats only the files of
+            # Before the process of archiwum; a resume with the human's answer repeats only the files of
             # the merge, so a file committed after the stop does not merge without the consent.
             check = archive_check(run_, merge_only=answer is not None)
             if check is not None:
@@ -5466,7 +5018,11 @@ def lead(run_, answer=None, resumed=None):
                 skipped(run_, name, SHORT_PATH)
                 reason = None
             else:
-                reason, denials = claude_step(run_, name, answer)
+                # The installer of the guardrails right before the run or resume of the step zabezpieczenia of the
+                # start (E11): its exit code other than 0 stops the start, and the step does not run.
+                reason = guardrails_install(run_) if run_.start and name == GUARDRAILS_STEP else None
+                if reason is None:
+                    reason, denials = claude_step(run_, name, answer)
         else:
             result = steps[name](run_)
             command, code, output = result[:3]
@@ -5492,7 +5048,7 @@ def lead(run_, answer=None, resumed=None):
             if name == "zabezpieczenia":
                 security_access(run_)
         if denials:
-            # P11: only denied tool calls, and the step's trace is complete: accepted, with a stop line.
+            # Only denied tool calls, and the step's trace is complete: accepted, with a stop line.
             record_stop(run_, name, denial_reason(denials), ACCEPTED_DONE, ACCEPTED_EFFECT)
             say(f"krok {name}: {denial_reason(denials)}; ślad kroku jest kompletny, więc krok jest przyjęty "
                 "i łańcuch idzie dalej.")
@@ -5704,7 +5260,7 @@ def locked_main(args, cid, root, path, lab):
     run_ = Run(root, cid, state, lab, main, main_problem, start)
     consent = None
     if args.przyjmij and kind == KIND_MERGE:
-        # A22: the consent to the merge is the files and their blobs now; archiwum is not done without its run.
+        # The consent to the merge is the files and their blobs now; archiwum is not done without its run.
         problem = consent_line_problem(run_)
         if problem:
             return refuse(f"zgody na scalenie nie da się zapisać: {problem}; potem: {again} --przyjmij")
@@ -5713,7 +5269,7 @@ def locked_main(args, cid, root, path, lab):
             return refuse(f"zgody na scalenie nie da się zapisać: {problem}")
         consent = merge_consent(run_, files)
     elif args.przyjmij and stopped == "archiwum":
-        # A11: an accepted archiwum goes on to the merge, so the files of the merge need the consent first.
+        # An accepted archiwum goes on to the merge, so the files of the merge need the consent first.
         problem = merge_reason(run_)
         if problem:
             return refuse(f"krok archiwum nie zostanie przyjęty: {problem}; uruchom: {again} (krok archiwum "
@@ -5734,12 +5290,12 @@ def locked_main(args, cid, root, path, lab):
         if problem or access is None:
             return refuse(f"zgody nie da się przyjąć: {problem or 'zatrzymanie nie dotyczyło dostępu kroków'}")
     if args.przyjmij and not start and kind in (KIND_CONSENT, KIND_DOMAIN):
-        # plan.md of wdrozenie, „Decyzje planu”: the consent is in the committed stop line; the sections the step
+        # The consent is in the committed stop line; the sections the step
         # trusts are recorded anew from HEAD, and the step runs again instead of going to zrobione.
         problem = consent_line_problem(run_, stopped, "zgoda: człowiek, <czego dotyczy>")
         if problem:
             return refuse(f"zgody nie da się przyjąć: {problem}; potem: {again} --przyjmij")
-        # impl-review F5: the consent covers what the stop showed, on the branch of the change, and nothing more.
+        # The consent covers what the stop showed, on the branch of the change, and nothing more.
         branch = current_branch(root)
         if branch != cid:
             return refuse(f"zgody nie da się przyjąć: bieżąca gałąź to {branch or 'odłączony HEAD'}, a zapis sekcji "
@@ -5784,6 +5340,11 @@ def locked_main(args, cid, root, path, lab):
             if stopped == RUN_RECORD:
                 end_list(run_)
         return lead(run_, args.odpowiedz, resumed)
+    except TrustWriteError as exc:
+        # write_state stops before stan.json, so the state file (and its zatrzymanie) is as the last write left it.
+        return refuse(f"plik zaufany {exc.path} nie daje się zapisać ({exc.reason}), więc {rel(root, path)} "
+                      "został bez zmian, razem z polem zatrzymanie, jeśli je miał. Przyczyna to zwykle piaskownica, "
+                      f"która nie pozwala pisać poza folderem projektu; uruchom autopilota poza nią: {again}")
     except (Interrupted, KeyboardInterrupt) as exc:
         name = getattr(exc, "name", "SIGINT")
         for sig in handlers:

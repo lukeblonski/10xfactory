@@ -1,6 +1,6 @@
 # Zmiany w skillach 10x — poprawka P3 z retrospektywy wdrozenie: źródło zaufania decyzji o dostępie w przeglądzie planu
 
-- **Źródło:** propozycja P3 retrospektywy `context/archive/2026-10-26-wdrozenie/retro.md`, przyjęta przez człowieka w D-348 (`context/foundation/decisions.md`); dowód: trzy zatrzymania przeglądu kodu w zmianie wdrozenie (2026-10-27 00:14, 2026-10-28 10:17, 2026-10-28 12:23) z uwagą o dostępie albo zgodzie opartej na danych, które zmienia ograniczany.
+- **Źródło:** propozycja P3 retrospektywy `context/archive/2026-10-26-wdrozenie/retro.md`, przyjęta przez człowieka w D-348 (`context/foundation/decisions-archive.md`); dowód: trzy zatrzymania przeglądu kodu w zmianie wdrozenie (2026-10-27 00:14, 2026-10-28 10:17, 2026-10-28 12:23) z uwagą o dostępie albo zgodzie opartej na danych, które zmienia ograniczany.
 
 Opis nie cytuje skilli. Opis jest dla ludzi: w paczce zmiany w skillach `10x-*` nanosi `scripts/instaluj.py` z przepisu `zmiany-10x.json`.
 

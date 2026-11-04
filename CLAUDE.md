@@ -1,15 +1,15 @@
 ## Verify
 
-Uruchom `python3 -m unittest discover -s scripts -p 'test_*.py' && python3 scripts/check_refs.py && python3 scripts/check_no_copy.py` przed każdym commitem. Polecenie uruchamia testy skryptów, sprawdzenie odwołań w skillach i sprawdzenie, że repo nie kopiuje skilli kursu; kończy się kodem różnym od 0, gdy coś nie przechodzi.
+Pełne sprawdzenie to `python3 -m unittest discover -s scripts -p 'test_*.py' && python3 scripts/check_refs.py && python3 scripts/check_no_copy.py`: testy skryptów (ok. 10 minut), odwołania w skillach i brak kopii skilli kursu; kod różny od 0, gdy coś nie przechodzi. Uruchom je zawsze przed scaleniem i przed commitem, który zmienia kod (`.py`, `.sh`) albo inny plik niż `.md`.
 
-Commit, który zmienia tylko pliki w `context/`, nie wymaga pełnego sprawdzenia. Każdy inny commit wymaga go jak dotąd.
+Commit, który zmienia tylko pliki `.md` poza `context/`, uruchamia tylko `python3 scripts/check_refs.py && python3 scripts/check_no_copy.py`, a gdy zmienia `paczka/README.md`, także sprawdzenie eksportu z `docs/publikacja-paczki.md`, punkt 1. Commit, który zmienia tylko pliki w `context/`, nie wymaga sprawdzenia.
 
-Ostatni poprawny przebieg (2026-10-26):
+Ostatni poprawny przebieg pełnego sprawdzenia (2026-11-03):
 
 ```
-OK
+OK (skipped=1)
 OK: all references in <fabryka>/skills resolve
-OK: 38849 runs of 8 words in 14 description files and 4 own skills (skills/fabryka, skills/guardrails, skills/intent, skills/retro; 23 files), no copy of upstream-10x (54 files)
+OK: 38812 runs of 8 words in 22 description files and 4 own skills (skills/fabryka, skills/guardrails, skills/intent, skills/retro; 23 files), no copy of upstream-10x (54 files)
 ```
 
 ## Najpierw minimum
@@ -18,7 +18,7 @@ Przed każdym rozwiązaniem odpowiedz, co minimalnie musi być prawdą, żeby za
 
 ## Rozmowa z człowiekiem i autopilot
 
-Gdy człowiek w rozmowie mówi „zrób zmianę”, „kontynuuj <change-id>” albo „co się dzieje?”, albo gdy kończy się wywołanie autopilota uruchomione w tle, sesja czyta `docs/sesja-glowna.md` i działa według niego. Krok `claude -p` autopilota (ma w środowisku zmienną `AUTOPILOT_KROK`) ani sesja autora albo recenzenta kroku PR tego nie robi i nie uruchamia autopilota.
+Gdy człowiek w rozmowie mówi „zrób zmianę”, „kontynuuj <change-id>” albo „co się dzieje?”, albo gdy kończy się wywołanie autopilota uruchomione w tle, sesja czyta `docs/sesja-glowna.md` i działa według niego. Krok `claude -p` autopilota (ma w środowisku zmienną `AUTOPILOT_KROK`) tego nie robi i nie uruchamia autopilota.
 
 ## Jak pisać do człowieka
 
@@ -57,17 +57,16 @@ Słownik. Samego słowa „fabryka” bez dopowiedzenia nie używamy.
 
 Kiedy pytać człowieka:
 
-- Zawęź, zanim zapytasz. Zanim zapytasz, weź opcję najlepszą dla celu zmiany i sprawdź, czy jej wadę da się usunąć, zawężając ją. Jeśli tak, poleć tę zawężoną wersję i napisz, co zawężenie zmienia. Pytanie do człowieka nazywa wadę polecanej opcji i zawężenie, które ją usuwa. Gdy zawężenie wady nie usuwa, pytanie mówi to jednym zdaniem. Gdy rekomendacja stoi na tym, jak zachowa się narzędzie (uprawnienia, piaskownica, hook, logowanie CLI), agent przed pytaniem robi próbę, która to pokazuje (darmową od razu, płatną z kosztem w tym samym pytaniu), i podaje jej wynik.
-- Pytaj raz o wszystkie bramki. Przed pytaniem z bramki agent zbiera wszystkie decyzje z bramek, których krok albo zmiana prawdopodobnie dotknie: ścieżki z `docs/zgoda-czlowieka.md`, płatne przebiegi i testy oraz płatne usługi. Lista ścieżek obejmuje też chroniony test zachowania skilla, który zmiana zmienia (np. `scripts/e2e_guardrails.sh` przy zmianie hooków guardrails), a płatny przebieg obejmuje cały zestaw testów, który krok `testy-fabryki` uruchomi dla zmienianych plików. Pyta o nie raz, w jednym pytaniu, z kosztem płatnego przebiegu w tym samym pytaniu.
+- Zawęź, zanim zapytasz. Zanim zapytasz, weź opcję najlepszą dla celu zmiany i sprawdź, czy jej wadę da się usunąć, zawężając ją. Jeśli tak, poleć tę zawężoną wersję i napisz, co zawężenie zmienia. Sprawdź też w źródle (typy, dokumentacja, kryterium), czy opis opcji i jej przyczyny się z nim zgadza.
+- Pytaj raz o wszystkie bramki. Przed pytaniem z bramki agent zbiera wszystkie decyzje z bramek, których krok albo zmiana prawdopodobnie dotknie: ścieżki z `docs/zgoda-czlowieka.md`, płatne testy fabryki ponad budżet z bramki 3, inne płatne przebiegi, wysyłkę danych i płatne usługi. Lista ścieżek obejmuje też chroniony test zachowania skilla, który zmiana zmienia (np. `scripts/e2e_guardrails.sh` przy zmianie hooków guardrails), a sumę płatnych testów fabryki liczy się z całego zestawu testów, który krok `testy-fabryki` uruchomi dla zmienianych plików. Pyta o nie raz, w jednym pytaniu, z kosztem płatnego przebiegu w tym samym pytaniu.
 - Fakty o usługach zewnętrznych sprawdzaj w źródle. Gdy decyzja zależy od ceny, prędkości albo dostępności usługi zewnętrznej, agent sprawdza je w źródle (dokumentacja, cennik, strona statusu, polecenie narzędzia). Gdy nie może, mówi to wprost i decyduje według najgorszego przypadku.
-- Agent pyta człowieka tylko, gdy decyzja trafia na jedną z siedmiu bramek:
-  1. zmienia intencję albo kryteria akceptacji w `change.md` zmiany;
+- Agent pyta człowieka tylko, gdy decyzja trafia na jedną z sześciu bramek:
+  1. zmienia intencję albo kryteria akceptacji w `change.md` zmiany albo zmienia decyzję, którą człowiek podjął w tej zmianie (linia z `rozstrzygnął: człowiek` w `## Pytania do człowieka`), albo robi od niej wyjątek;
   2. dotyka ścieżki z `docs/zgoda-czlowieka.md` (sekcja `## Ścieżki`) albo usuwa krok łańcucha (sekcja `## Usunięcie kroku łańcucha` tego pliku);
-  3. wymaga płatnego przebiegu albo wysyłki danych;
+  3. wymaga płatnego przebiegu albo wysyłki danych: płatne testy fabryki (`scripts/run_evals.sh`) do 10 USD na zmianę, liczone ze średnich kosztów z sekcji „Płatne testy skilli” w `docs/zgoda-czlowieka.md`, idą bez pytania, a pytanie pada, gdy zmiana potrzebuje więcej; wysyłka danych zawsze idzie do człowieka;
   4. coś upublicznia;
   5. zmienia ustawienia globalne (`~/.claude`);
-  6. prowadzi do operacji trudnej do cofnięcia;
-  7. polityka triage'u każe rozstrzygać człowiekowi.
+  6. prowadzi do operacji trudnej do cofnięcia: usuwa dane, przepisuje historię gita, zmienia coś poza repozytorium zmiany.
 - Bramka 1 a decyzje z góry. Decyzja z góry ze źródłem `agent` nie jest intencją człowieka: agent zmienia ją sam, linią z `rozstrzygnął: agent` w `## Pytania do człowieka`, i poprawia `change.md` w tym samym commicie co kod. Decyzja bez jasnego źródła liczy się jako decyzja człowieka, więc jej zmiana trafia na bramkę 1.
 - Każde inne pytanie agent rozstrzyga sam według swojej rekomendacji. Nie pyta człowieka i zapisuje linię z `rozstrzygnął: agent` w `## Pytania do człowieka` w `change.md` zmiany (format niżej).
 - W kroku planu autopilota te same bramki zatrzymują krok: pytania z bramki krok planu nie rozstrzyga sam, tylko kończy odpowiedź pytaniem do człowieka (`PLAN_NOTE` w `scripts/autopilot.py`; D-137: pytania, których krok planu w autopilocie nie rozstrzyga sam).

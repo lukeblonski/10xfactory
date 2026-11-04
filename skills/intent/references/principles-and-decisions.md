@@ -23,7 +23,7 @@ Rules that settle product questions before anyone asks them. One line per princi
 |---|---|---|
 | `context/foundation/decisions.md` (the decision log) | decisions every future change must apply, and decisions on retrospective proposals | `intent`; `retro` (entries of the change, decisions on proposals, rejected proposals) |
 | `context/foundation/limitations.md` (the limitation register) | limitations: findings knowingly left unfixed, each with `Kiedy wrócić` | the triage of `10x-impl-review` and `10x-plan-review` (writes LIMIT entries); `retro` (`Kiedy wrócić`, entries of the change) |
-| `context/foundation/decisions-archive.md` (the archive) | closed entries (a fixed limitation, a replaced decision) and decisions of one change | nobody in ordinary work; a skill that writes an entry reads only its `## D-` headings, for the number |
+| `context/foundation/decisions-archive.md` (the archive) | closed entries (a fixed limitation, a replaced decision), decisions of one change, and accepted proposals of retrospectives before 2026-11-02 | nobody in ordinary work; a skill that writes an entry reads only its `## D-` headings, for the number |
 
 ### What goes into the log
 
@@ -65,7 +65,7 @@ Create it at its first entry with its heading: `# Decisions`, `# Limitations` or
 - Fields, one per line, in this order:
   - `Pytanie`: the question in one line;
   - `Wybór`: the answer taken;
-  - `Kto zdecydował`: `człowiek`, `model (<skill name>)`, `recenzent i autor (<skill name>)` or, for a proposal merged by the retrospective's PR step, `testy skilli i recenzent (retro_pr)`;
+  - `Kto zdecydował`: `człowiek` or `model (<skill name>)`;
   - `Podstawa`: the reason: a principle, a file, the human's words;
   - `Status`: a short description of the entry's current state. Base values, recommended when they fit: `obowiązuje`, `obowiązuje na próbę`, `czeka na człowieka`, `zmienione przez człowieka`, `zastąpione przez D-<nnn>` and, for a limitation, `naprawione w <change-id> (<sha>)`. A note in parentheses or after a semicolon may follow;
   - `Zmiana`: the change-id the entry was written in.
@@ -80,7 +80,7 @@ A finding knowingly left unfixed. It lives in the limitation register `context/f
 - Pytanie: czy naprawić teraz to, że widok tygodnia nie pokazuje rezerwacji zrobionej w innej karcie bez przeładowania?
 - Wybór: nie; ograniczenie zostaje. Rezerwacje zmieniają się rzadko, a przeładowanie wystarcza.
 - Kto zdecydował: model (10x-impl-review)
-- Podstawa: reviews/impl-review.md F4, reguła L2
+- Podstawa: reviews/impl-review.md F4, reguła WARNING, runda 3
 - Kiedy wrócić: zmiana dotyka `src/week/` albo aplikacja ma prawdziwych użytkowników.
 - Źródło: widok-tygodnia — `reviews/impl-review.md` F4
 - Status: obowiązuje
@@ -88,15 +88,15 @@ A finding knowingly left unfixed. It lives in the limitation register `context/f
 ```
 
 - Fields in this order: `Pytanie`, `Wybór`, `Kto zdecydował`, `Podstawa`, `Kiedy wrócić`, `Źródło`, `Status`, `Zmiana`.
-- `Kto zdecydował`: `model (<skill>)` for a policy decision, `człowiek` for a limitation the human accepted, `recenzent i autor (<skill>)` for a loop closed by both agents.
-- `Podstawa`: the report and finding, the rule (`L1`–`L4`, or `E4 w rundzie <N>`), and `poza polityką` for L4; for a human, their words.
+- `Kto zdecydował`: `model (<skill>)` for a policy decision, `człowiek` for a limitation the human accepted.
+- `Podstawa`: the report and finding and the policy rule (e.g. `WARNING, runda 3` or `zapętlenie w rundzie <N>`); for a human, their words.
 - `Kiedy wrócić`: the condition under which the limitation starts to matter, named so a retrospective can recognise it in a change's traces: a file or directory the change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users).
 - `Źródło`: the change the limitation comes from and the place, in backticks: `<change-id> — \`<path>:<line>\`` or `<change-id> — \`<report>\` F<n>`. `Zmiana` names the change that writes the entry; when the two differ, `Źródło` keeps the origin.
 - Status: `obowiązuje` while the limitation stands; `naprawione w <change-id> (<sha>)` once a change fixes it (only `Status` changes), and that change moves the entry to the archive.
 
 ### A decision on retrospective proposals
 
-The human's decision on the proposals of one retrospective that the PR step does not merge (see the end of this section), plus one separate entry for each rejected proposal.
+The human's decision on the proposals of one retrospective that the main session does not apply itself (see the end of this section), plus one separate entry for each rejected proposal.
 
 ```markdown
 ## D-035 Propozycje retrospektywy etap-8a-polityka-triage
@@ -128,7 +128,7 @@ The human's decision on the proposals of one retrospective that the PR step does
 - `Data`: the day the human decided (`YYYY-MM-DD`); a retrospective compares later evidence against it.
 - `Podstawa` of a rejection: the human's reason in one sentence.
 
-A proposal with its target in `skills/` that the retrospective's PR step merges (`python3 scripts/retro_pr.py <change-id>`) gets its own entry, which the script appends as the last commit of the PR branch, right before the merge. Heading `Propozycja <change-id> P<n>: <proposal title>`, the same fields in the same order, `Kto zdecydował: testy skilli i recenzent (retro_pr)`, `Podstawa` naming the tests and the reviewer's verdict, and `Retrospektywa` followed by the proposal number. When the proposal has a `Co ma się zmienić` field, the entry has it in the same place: the field of that one proposal, without the `P<n>:` prefix, since its number is in `Retrospektywa`. The template is in `skills/retro/references/pr.md`, section "Wpis w dzienniku". A PR that waits for the human gets no entry from the script; the human records the decision as above.
+A proposal that changes only text (`.md`) outside the protected files, which the main session applies after the merge without the human's decision (`docs/sesja-glowna.md`), gets its own entry in the same commit. Heading `Propozycja <change-id> P<n>: <proposal title>`, the same fields in the same order, `Kto zdecydował: sesja główna (retro)`, `Podstawa: zmienia tylko tekst poza plikami chronionymi; skutek mierzy retrospektywa`, `Retrospektywa` followed by the proposal number, and `Zmiana: retro-pr <change-id> P<n>`. When the proposal has a `Co ma się zmienić` field, the entry has it in the same place: the field of that one proposal, without the `P<n>:` prefix, since its number is in `Retrospektywa`.
 
 ## What `intent` writes
 

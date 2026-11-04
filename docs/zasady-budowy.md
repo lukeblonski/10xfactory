@@ -27,7 +27,7 @@ Gdy kryteria akceptacji nie obejmują czegoś, czego wymaga oczekiwany efekt z i
 
 ## 4. Gałęzie
 
-Każdy etap pracuje na własnej gałęzi o nazwie zmiany, np. `etap-3-dowody`. Kolejność: review na gałęzi, archiwum na gałęzi (`/10x-archive`), `git merge --ff-only` do `master`, `git push`, a na końcu krok PR retrospektywy (punkt 9).
+Każdy etap pracuje na własnej gałęzi o nazwie zmiany, np. `etap-3-dowody`. Kolejność: review na gałęzi, archiwum na gałęzi (`/10x-archive`), `git merge --ff-only` do `master`, `git push`, a na końcu propozycje retrospektywy (punkt 9).
 
 ## 5. Kontekst
 
@@ -55,9 +55,8 @@ Format jednego wpisu:
 - rodzaj: <r> · krok: <k> · pytanie: <p> · rekomendacja: <tekst> · wybór: rekomendacja|inny: <tekst> · rozstrzygnął: człowiek|agent|obserwator
 ```
 
-- `rodzaj` to jeden z sześciu: `spór recenzenta z autorem`, `eskalacja`, `płatny przebieg`, `zakres`, `kryterium`, `inne`.
+- `rodzaj` to jeden z sześciu: `spór recenzenta z autorem`, `eskalacja`, `płatny przebieg`, `zakres`, `kryterium`, `inne`. `spór recenzenta z autorem` to rodzaj tylko wpisów sprzed zmiany polityka-przegladu, w której zniknął agent autora w przeglądzie.
 - Pytanie, które wymaga płatnego przebiegu, ma zawsze rodzaj `płatny przebieg`, nawet gdy dotyczy też zakresu albo kryterium.
-- Pytanie o podejście (E4) z przeglądu planu albo kodu, które trafia do człowieka, ma rodzaj `eskalacja`.
 - `krok` to krok łańcucha, w którym padło pytanie (np. `intent`, `plan`, `plan-review`, `implement`).
 - `wybór` to `rekomendacja`, gdy rozstrzygnięcie jest zgodne z rekomendacją agenta, albo `inny: <tekst>` z tym, co wybrał człowiek.
 - `rozstrzygnął` to `człowiek`, `agent` albo `obserwator`. Przy `agent` i `obserwator` pole `wybór` to zawsze `rekomendacja`.
@@ -74,21 +73,17 @@ To samo dotyczy nowej pozycji w planie: etapu, kroku albo narzędzia. Zanim ją 
 - Zamknięcie etapu planu wdrożenia uruchamia tryb pełny, `scripts/run_evals.sh --full`.
 - Wynik trafia do `reviews/` zmiany (`--change <id>`, a bez tej flagi folder zmiany o nazwie bieżącej gałęzi). Test poniżej progu trafia do Notes jako propozycja dla człowieka.
 - Progi, oczekiwane wyniki i zamrożone dane w `scripts/fixtures/` zmienia tylko człowiek. Agent nie zmienia ich po to, żeby test przeszedł.
-- Zmiana polityki triage'u ma próg wejścia (D-115). Zmianą polityki triage'u jest zmiana tekstu, który czyta test `triage`: `triage-policy.md` któregoś skilla przeglądu albo sekcji promptu podagenta triage'u (`### Triage sub-agent`) w jego `SKILL.md` (D-165). Taka zmiana wchodzi tylko po porównaniu testu `triage` przed nią i po niej, po trzy przebiegi każdej wersji, na jednej mierze, którą nazywa intencja zmiany: zgodne decyzje albo pytania do człowieka na przebieg. Różnica średnich po i przed musi być większa niż większy z dwóch rozstępów (rozstęp serii to najlepszy wynik minus najgorszy), a test `triage` dalej przechodzi. Zmiana kroku stosowania poprawek, która tego tekstu nie zmienia, nie jest zmianą polityki i nie przechodzi porównania; jej skutek ocenia retrospektywa przez pole „Co ma się zmienić”. Jak policzyć porównanie: `docs/testy-fabryki.md`, sekcja „Porównanie polityki triage'u przed i po (D-115)”.
 - Opis testów, progów, kosztów i trybów: `docs/testy-fabryki.md`.
 
 ## 9. Propozycje retrospektywy
 
-Propozycje z `Miejscem docelowym` w `skills/` i `context/foundation/lessons.md`:
-
-- Po scaleniu i pushu zmiany przechodzą krokiem PR: `python3 scripts/retro_pr.py <change-id>` (opis: `skills/retro/references/pr.md`). Każda dostaje własny PR. Krok uruchamia sam autopilot (`scripts/autopilot.py`) po pushu i wypisuje listę propozycji ze stanem, bez pytania; poza autopilotem uruchamia go człowiek.
-- Skrypt nie scala PR-a sam, także gdy przejdą testy skilli i recenzent w osobnej sesji `claude -p` (decyzja człowieka 2026-11-02). Wpis „przyjęta” do dziennika dopisuje skrypt w tym samym PR-ze dopiero przy scaleniu przez `--paid-tests`, które uruchamia człowiek.
-- Człowiek zatwierdza poprawkę, która dotyka ścieżki z `docs/zgoda-czlowieka.md`, usuwa krok łańcucha, wychodzi poza zakres poprawki skilla albo zmienia skill z płatnym testem. Krok PR niczego nie scala sam i nie uruchamia sam płatnych testów, więc każdy PR retrospektywy czeka otwarty z powodem w opisie, a scala go człowiek (decyzja człowieka 2026-11-02, zmienia D-426).
-
-Pozostałe propozycje (`docs/`, `CLAUDE.md`, hooki) i PR-y czekające na człowieka:
-
-- Propozycje retrospektywy nie dostają własnej zmiany. Dołączamy je do najbliższej zmiany, która i tak jest w planie. Osobna zmiana tylko wtedy, gdy propozycja naprawia coś, co blokuje pracę.
+- Propozycja, która zmienia tylko tekst (`.md`) poza ścieżkami z `docs/zgoda-czlowieka.md`, wchodzi bez decyzji człowieka. Po scaleniu zmiany nanosi ją sesja główna osobnym commitem z tematem `… (retro <id> P<n>)`, ze sprawdzeniem z `CLAUDE.md`, i podaje ją człowiekowi w podsumowaniu jako informację.
+- Zabezpieczeniem jest pomiar skutku i domyślne usunięcie poprawki bez skutku, a nie zgoda z góry.
+- Tak samo wchodzi propozycja tekstowa z retrospektywy zmiany w repo aplikacji, gdy jej miejsce docelowe jest w repo fabryki.
+- Propozycja, która zmienia kod albo plik chroniony, idzie do intencji najbliższej zmiany w repo fabryki, do sekcji „Poprawki z retrospektywy”. Człowiek zatwierdza ją razem z intencją („tak” albo np. „tak, bez P2”), bez osobnej decyzji.
+- Osobna zmiana tylko wtedy, gdy propozycja naprawia coś, co blokuje pracę.
 - Przyjmujemy propozycję, która ma co najmniej dwa wystąpienia albo naprawia realny błąd. Resztę odrzucamy z dopiskiem „wróć, gdy się powtórzy”.
+- Szczegóły: `docs/sesja-glowna.md`, sekcja „Propozycje retrospektywy”.
 
 ## 10. Najpierw proste rozwiązanie
 

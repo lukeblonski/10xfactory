@@ -10,7 +10,7 @@ With the plain 10x skills you run each step yourself (`/10x-plan`, `/10x-impleme
 
 - **Autopilot.** One command takes a change through the whole chain, each step in a fresh Claude Code process: intent → research (when needed) → plan → plan review → implementation → code review → archive → merge and push. It stops only where a human decision is required.
 - **Project start from an empty folder.** A shaping conversation with you (`/10x-shape`), then PRD, tech stack, infrastructure, your one-time acceptance, project skeleton with CI, guardrails, roadmap, test plan and a private GitHub repo, without further questions.
-- **Roadmap slices.** Each roadmap item is built as a separate change through the full chain.
+- **Roadmap slices.** Each roadmap item is built as a separate change through the full chain. A new item starts only where the chain stops anyway, so a roadmap has few, larger items.
 - **Deployment as a roadmap item.** Deploys through GitHub Actions; secrets go from local files to GitHub secrets without passing through the chat.
 - **The `intent` skill.** Every change starts with a contract: problem, expected effect, your scenario step by step, numbered acceptance criteria that a command or a verifier agent can check, and a risk level.
 - **Situational steps, like in 10x.** Low-risk changes skip research. When your request looks like "X is broken, do Y", the session first runs `/10x-frame` with you. Plan review and code review always run.
@@ -68,7 +68,18 @@ For later work in that project, write (in Polish) „zrób zmianę: <what you wa
 - **Agent steps cannot read skill files in your configuration folder**, so reviews run without some reference files.
 - **Only 10xDevs 3.0 skills are supported.**
 
+This is the final version of 10xfactory. It will not be updated.
+
 ## Changelog
+
+### 1.2.0 — 2026-11-04
+What changed since 1.1:
+- This is the final version of 10xfactory. It will not be updated.
+- Roadmaps have fewer, larger items. A new item starts only where you need to see or accept something, where outside access is needed, at a human gate or for a separate large risk. The smaller stories in between become phases of one change.
+- The project start installs the guardrails by itself, so you no longer paste a `!` command. The installer stops without writing when a file it reads or writes is a link or lies outside the project.
+- Guardrails no longer run a linter after every edit, because that hook ran outside the sandbox. Lint runs in the project's verify command.
+- A test tool that is installed but cannot run in the agent sandbox (for example `claude`) no longer stops the project start. The session runs those tests right after the first phase that writes them.
+- When code review keeps finding the same problem in one part, the agent rewrites that part once instead of patching it round after round, and if that fails, switches it off and records it as a known limitation.
 
 ### 1.1.0 — 2026-11-02
 What changed since 1.0:

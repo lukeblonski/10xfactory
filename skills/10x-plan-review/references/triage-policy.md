@@ -4,49 +4,37 @@ Treść tej polityki to decyzja człowieka. Agent jej nie zmienia. Propozycję z
 
 ## Kolejność
 
-Agent triage stosuje reguły w tej kolejności. Pierwsza pasująca reguła rozstrzyga.
+Agent triage stosuje reguły w tej kolejności: bramka, zapętlenie, waga. Pierwsza pasująca reguła rozstrzyga.
 
-## Eskalacja do człowieka (E)
+## Bramka
 
-- **E1.** Poprawka zmienia intencję, „Czego nie robimy” albo decyzję z góry zmiany.
-- **E2.** Poprawka dotyczy kryteriów review, tej polityki, testów zachowania skilli, ustawień globalnych (`~/.claude`) albo upublicznienia czegokolwiek.
-- **E3.** Poprawki nie da się łatwo cofnąć: usuwa dane, przepisuje historię git albo zmienia coś poza repo zmiany i jej projektem testowym.
-- **E4.** Zapętlenie. Druga runda z rzędu znajduje nową formę tego samego problemu w tym samym mechanizmie albo poprawka z poprzedniej rundy wprowadziła regresję. Agent nie łata wtedy zapętlonego mechanizmu ani regresji. Uwagi w tym mechanizmie, regresje i każda poprawka, która dotyka plików zapętlonego mechanizmu, idą do jednego pytania o podejście na rundę (sekcja „Pytanie o podejście”). Pozostałe uwagi rozstrzyga normalnie.
-- **E5.** Impact HIGH.
-- **E6.** Trzecia runda review tej samej zmiany nadal ma uwagę CRITICAL albo WARNING do poprawy. Agent rozstrzyga wtedy uwagi tej rundy dalszymi regułami: poprawki są stosowane i sprawdzane poleceniami, ale ponownego review już nie ma. Runda daje jedno pytanie o podejście do człowieka.
+Poprawka uwagi CRITICAL albo WARNING, która trafia na bramkę z sekcji „Kiedy pytać człowieka” w `CLAUDE.md`, idzie do człowieka (ESCALATE, reguła `bramka <n>` z numerem bramki). Poprawka w zakresie zgody z góry z `change.md` (ścieżki, płatne przebiegi) na tę bramkę nie trafia. Innego powodu pytania człowieka ta polityka nie ma.
 
-## Napraw (N)
+## Zapętlenie
 
-- **N1.** Uwaga CRITICAL.
-- **N2.** Uwaga, przez którą nie jest spełnione kryterium akceptacji albo reguła z `lessons.md`.
-- **N3.** Uwaga, która podważa cel zabezpieczenia (skryptu sprawdzającego, blokady) w ramach przyjętego modelu zagrożenia.
+Reguła `zapętlenie` działa od rundy 2: ten sam mechanizm wraca z powiązanymi uwagami (wobec `## Decyzje triage` wcześniejszych raportów tej serii) albo poprawka z poprzedniej rundy wprowadziła błąd. Agent nie łata wtedy dalej tego fragmentu.
 
-## Zapisz jako ograniczenie (L)
+- Reguła obejmuje tylko uwagi do naprawy (CRITICAL albo WARNING). Uwaga OBSERVATION w zapętlonym fragmencie dostaje `AUTO-SKIP (OBSERVATION)`.
+- Przepisanie (`AUTO-FIX (zapętlenie)`): raport dostaje akapit „Dlaczego to się powtarza”. Poprawki fragmentu są cofane do stanu sprzed pierwszej łaty, czyli sprzed commitu z ` · commit <sha>` w `## Decyzje triage`: treść fragmentu bierze się z `git show <sha>^:<plik>` i zastępuje tylko ten fragment. Poprawki innych uwag w tych samych plikach zostają; cały plik wolno przywrócić tylko, gdy ten commit zmienił go wyłącznie dla uwag objętych zapętleniem. Potem fragment jest pisany od nowa, prościej, bez tej przyczyny. To jedna próba, bez człowieka.
+- Twarde zatrzymanie (`AUTO-LIMIT (zapętlenie)`): gdy następna runda dalej ma w tym fragmencie uwagę do naprawy albo zapętlenie wypada w rundzie 3. Funkcja zostaje wyłączona (kod) albo wycięta z zakresu (plan, do „What We're NOT Doing”), a każda objęta uwaga dostaje wpis w rejestrze z warunkiem powrotu. Człowiek dostaje pytanie tylko, gdy wyłączenie łamie kryterium akceptacji (`bramka 1`).
 
-Bez poprawki. Wpis w rejestrze ograniczeń w `context/foundation/limitations.md`, z jednym zdaniem uzasadnienia i polem „Kiedy wrócić” (warunek, przy którym ograniczenie staje się ważne).
+## Waga
 
-- **L1.** Uwaga dotyczy celowego obejścia albo przypadku spoza modelu zagrożenia. Gdy zmiana nie opisuje modelu zagrożenia, przyjmij „przypadkowy błąd agenta, nie celowe obejście” i zapisz to założenie. Obejście jest celowe tylko wtedy, gdy wymaga świadomego wysiłku, np. obejścia innej blokady. Formy, na które agent trafia przy zwykłej pracy (wielkość liter w nazwach plików, dowiązania), to przypadkowy błąd.
-- **L2.** Problem dziś nie występuje, bo brakuje warunku, który by go wywołał, a poprawka nie jest trywialna.
-- **L3.** Poprawka zmieniłaby działanie narzędzia spoza celu zmiany. Luka trafia wtedy dodatkowo do `lessons.md` jako reguła dla przyszłej zmiany.
+- `CRITICAL` — łamie kryterium akceptacji, test nie przechodzi, gubi dane albo jest dziurą w zabezpieczeniu w ramach modelu zagrożenia zmiany.
+- `WARNING` — prawdziwy błąd w sytuacji, która zdarza się przy zwykłej pracy, bez złamanego kryterium.
+- `OBSERVATION` — styl, nazwy, opis, przypadek hipotetyczny.
 
-## Napraw drobne (N4)
+Reguły wagi:
 
-- **N4.** Pozostałe uwagi z Impact LOW, gdy poprawka mieści się w plikach tej zmiany.
+- CRITICAL jest zawsze naprawiana (FIX, reguła `CRITICAL`).
+- WARNING jest naprawiana w rundach 1–2 (FIX, reguła `WARNING`), a w rundzie 3 idzie do rejestru (LIMIT, reguła `WARNING, runda 3`).
+- OBSERVATION jest pomijana jedną linią w raporcie (SKIP, reguła `OBSERVATION`), bez poprawki i bez rejestru.
 
-## Pozostałe (L4)
+Gdy zmiana nie opisuje modelu zagrożenia, przyjmij „przypadkowy błąd agenta, nie celowe obejście” i zapisz to założenie.
 
-- **L4.** Wszystko, czego nie objęła żadna reguła, zapisz jako ograniczenie w rejestrze (jak L1–L3) z adnotacją „poza polityką”. Retrospektywa sprawdzi, czy brakuje reguły.
+## Wpis w rejestrze
 
-## Pytanie o podejście
-
-- Runda, w której pasuje E4 albo E6, daje człowiekowi najwyżej jedno pytanie o podejście. Uwagi tej rundy nie dostają osobnych wpisów do człowieka z reguł E4 ani E6.
-- Pytanie wymienia objęte uwagi, co najmniej jedno inne podejście z zaletą i kosztem oraz wybór recenzenta.
-- Zmiana podejścia zastępuje zapętlony mechanizm innym. Kolejna łata tego samego mechanizmu nie jest zmianą podejścia.
-- Przy E4 recenzentem jest agent triage'u. Autorem jest drugi świeży agent: dostaje pytanie i opcje bez wyboru recenzenta i wybiera sam.
-- Gdy recenzent i autor wybiorą to samo, nowe podejście jest stosowane jako poprawka objętych uwag bez pytania człowieka, a sprawdza je kolejna runda review.
-- Człowiek dostaje pytanie, gdy recenzent i autor wybrali inaczej, gdy zmiana podejścia zmienia intencję albo kryteria akceptacji, gdy wymaga płatnego przebiegu albo wysyłki danych i gdy zapętlenie wypada w rundzie 3, poza wyjątkiem z następnego punktu. Przy E6 dostaje je zawsze.
-- Pytanie, które obejmuje uwagę CRITICAL albo uwagę z Impact HIGH, człowiek dostaje zawsze, w rundzie 2 i 3, także gdy recenzent i autor wybrali to samo, również „przestań łatać, zapisz ograniczenie”. Zapętlenie na takiej uwadze znaczy, że modele sobie z nią nie radzą, więc decyduje człowiek.
-- Przy zapętleniu w rundzie 3 recenzent i autor mogą bez człowieka wybrać tylko „przestań łatać, zapisz ograniczenie”, i tylko gdy pytanie nie obejmuje uwagi CRITICAL ani uwagi z Impact HIGH. Uwagi zapętlenia dostają wtedy wpisy w rejestrze ograniczeń, a ponownego review nie ma. Każde inne podejście, które dodaje kod, i każda różnica wyborów recenzenta i autora idą do człowieka. Gdy runda ma też pytanie E6, uwagi zapętlenia, które idą do człowieka, dołączają do niego.
+LIMIT nie ma poprawki. Uwaga dostaje wpis w rejestrze ograniczeń w `context/foundation/limitations.md`, z jednym zdaniem uzasadnienia i polem „Kiedy wrócić” (warunek, przy którym ograniczenie staje się ważne).
 
 ## Łączenie uwag
 
@@ -54,12 +42,12 @@ Uwagi o tym samym miejscu, np. błąd i brakujący test tuż przy nim, triage ł
 
 ## Wybór między opcjami A i B
 
-Wybierz opcję zgodną z intencją i „Czego nie robimy”. Przy remisie wybierz mniejszą zmianę. Zalecenie ⭐ jest wskazówką, nie rozstrzygnięciem. Gdy jedna opcja łamie intencję, a druga „Czego nie robimy”, nie wybieraj, tylko eskaluj jak E1.
+Wybierz opcję zgodną z intencją i „Czego nie robimy”. Przy remisie wybierz mniejszą zmianę. Zalecenie ⭐ jest wskazówką, nie rozstrzygnięciem. Gdy jedna opcja łamie intencję, a druga „Czego nie robimy”, nie wybieraj: uwaga idzie do człowieka (bramka 1).
 
 ## Kto decyduje
 
-Triage robi subagent w świeżym kontekście. Nie pisał kodu ani raportu. Czyta tylko raport, `change.md`, `plan.md`, `lessons.md`, politykę i diff zmiany.
+Triage robi subagent w świeżym kontekście. Nie pisał kodu ani raportu. Czyta tylko raport, `change.md`, `plan.md`, `lessons.md`, politykę, diff zmiany i sekcję „Kiedy pytać człowieka” z `CLAUDE.md` fabryki (z `docs/zgoda-czlowieka.md` obok, gdy ocenia bramkę 2).
 
 ## Ponowne review
 
-Po poprawkach uwagi CRITICAL albo WARNING kolejne review robi subagent w świeżym kontekście. Obejmuje tylko commit z poprawkami i zapisuje następny numerowany raport. Liczba rund jest ograniczona regułą E6. Review nie zaczyna rundy 4.
+Po poprawkach uwag CRITICAL albo WARNING albo po przepisaniu przy zapętleniu kolejne review robi subagent w świeżym kontekście, gdy runda jest niższa niż 3. Obejmuje tylko commit z poprawkami i zapisuje następny numerowany raport. Rundy liczą się w całej zmianie: numer rundy to liczba raportów tego przeglądu w `reviews/` zmiany plus jeden, także gdy przegląd uruchamia człowiek albo autopilot. Rundy 4 nie ma. W rundzie 3 poprawki uwag CRITICAL sprawdzają polecenia, bez ponownego review.

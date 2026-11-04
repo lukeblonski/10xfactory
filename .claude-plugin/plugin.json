@@ -1,7 +1,7 @@
 {
   "name": "fabryka",
-  "version": "1.1.0",
-  "description": "Paczka 1.1.0 fabryki: autopilot zmian, start projektu, skille intent, guardrails i fabryka oraz hook startu sesji.",
+  "version": "1.2.0",
+  "description": "Paczka 1.2.0 fabryki: autopilot zmian, start projektu, skille intent, guardrails i fabryka oraz hook startu sesji.",
   "author": {
     "name": "autorzy paczki"
   },
