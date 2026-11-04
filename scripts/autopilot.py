@@ -148,8 +148,8 @@ SERIES = {
     "impl-review": re.compile(r"^impl-review(?:-(\d+))?\.md$"),
 }
 STOP_VERDICT = {"plan-review": "RETHINK", "impl-review": "REJECTED"}
-# Review rounds over the whole change: with this many reports of a series, the step writes no new one.
-REVIEW_ROUNDS = 3
+# The closure report next to a review report: `<report without .md>-zamkniecie.md` (closure check of the review).
+CLOSURE_SUFFIX = "-zamkniecie.md"
 # The statuses of a change in their order (10x-plan-review, 10x-goal-implement, 10x-impl-review, 10x-archive).
 STATUS_ORDER = ("new", "preparing", "planned", "plan_reviewed", "implementing", "implemented", "impl_reviewed",
                 "archived")
@@ -170,8 +170,8 @@ EVALS_FOR = (
     ("skills/10x-implement/references/", ("chain",)),
     ("skills/10x-archive/", ("chain",)),
     ("skills/retro/", ("chain",)),
-    ("skills/10x-plan-review/", ("chain", "triage")),
-    ("skills/10x-impl-review/", ("chain", "triage")),
+    ("skills/10x-plan-review/", ("chain",)),
+    ("skills/10x-impl-review/", ("chain",)),
     # skills/intent/scripts/check_intent.py loads it for every case of the intent test.
     ("skills/10x-impl-review/scripts/validate_change.py", ("intent",)),
     ("skills/intent/", ("intent",)),
@@ -184,7 +184,7 @@ EVALS_FOR = (
 EVALS_FILES = ("scripts/run_evals.sh", "scripts/eval_*.sh", "scripts/evallib.py", "scripts/create_sandbox.sh",
                "scripts/fixtures/")
 # The order of the tests in the registry of scripts/run_evals.sh.
-EVALS_ORDER = ("guardrails", "triage", "chain", "reviewer", "intent")
+EVALS_ORDER = ("guardrails", "chain", "reviewer", "intent")
 SYNC_STEP = "synchronizacja-skilli"
 NO_FOLDER = "pominięty: brak folderu w repo"
 # The step after impl-review: it writes the protected files of the app and the sandbox
@@ -1073,6 +1073,39 @@ def newest_report(reviews, series):
     return best
 
 
+def closure_report(reviews, series):
+    """The path of the closure report of the newest full report of a series (newest_report):
+    `<report without .md>-zamkniecie.md` next to it; None without that report or that file."""
+    path = newest_report(reviews, series)[1]
+    if path is None:
+        return None
+    closure = path[:-len(".md")] + CLOSURE_SUFFIX
+    return closure if os.path.isfile(closure) else None
+
+
+def committed_closure(root, cid, series):
+    """The closure report of the newest report of a series (closure_report) when it is committed and unchanged
+    against HEAD; None otherwise. The review step commits it at the end of every path, so a closure file left
+    by a step that stopped half-way (e.g. during the one attempt) does not close the review."""
+    path = closure_report(os.path.join(change_folder(root, cid), "reviews"), series)
+    if path is None:
+        return None
+    text = committed(root, os.path.relpath(path, root))
+    return path if text is not None and text == read(path) else None
+
+
+def verdict_reason(series, path):
+    """Why the `- **Verdict**:` line of a report of a series (or of its closure report) stops the step: the
+    line is missing, or its verdict is STOP_VERDICT of the series; None when the chain goes on."""
+    value = verdict(read(path))
+    name = os.path.basename(path)
+    if value is None:
+        return f"raport {name} nie ma linii - **Verdict**: …"
+    if value.split()[0].strip("*`") == STOP_VERDICT[series]:
+        return f"raport {name} ma werdykt {value}"
+    return None
+
+
 def verdict(text):
     """The value of the first `- **Verdict**: …` line of a report; None without one."""
     for line in (text or "").splitlines():
@@ -1109,20 +1142,14 @@ def missing_trace(step, root, cid, snap):
         return (None if status_at_least(value, "planned")
                 else f"change.md ma status {value}, a po planie ma być co najmniej planned")
     if step in SERIES:
-        number, path = newest_report(os.path.join(folder, "reviews"), step)
+        reviews = os.path.join(folder, "reviews")
+        number, path = newest_report(reviews, step)
         before = snap["reports"].get(step, 0)
         if number <= before:
-            if before >= REVIEW_ROUNDS:
-                return None  # round 4 never starts: the review writes no report (triage policy, „Ponowne review”)
             return (f"brak nowego raportu {step}*.md w {rel_folder}/reviews/ "
                     f"(najwyższy numer przed krokiem: {before}, po kroku: {number})")
-        value = verdict(read(path))
-        name = os.path.basename(path)
-        if value is None:
-            return f"raport {name} nie ma linii - **Verdict**: …"
-        if value.split()[0].strip("*`") == STOP_VERDICT[step]:
-            return f"raport {name} ma werdykt {value}"
-        return None
+        # With a closure report its verdict (after the fixes) replaces the verdict of the review report.
+        return verdict_reason(step, closure_report(reviews, step) or path)
     if step == "implement":
         value = status(read(change_md(root, cid)))
         return (None if status_at_least(value, "implemented")
@@ -1141,10 +1168,35 @@ def missing_trace(step, root, cid, snap):
 def files_reason(step, root, cid, snap):
     """The reason to stop read from the change's files only; None when no decision entry was added and the
     step's trace is there."""
+    return entries_reason(root, cid, snap) or missing_trace(step, root, cid, snap)
+
+
+def entries_reason(root, cid, snap):
+    """The reason to stop on the decision entries added against the snapshot; None when none was added."""
     added = new_entries(root, cid, snap)
-    if added:
-        return "w ## Wymaga Twojej decyzji przybyły wpisy: " + " | ".join(added)
-    return missing_trace(step, root, cid, snap)
+    return "w ## Wymaga Twojej decyzji przybyły wpisy: " + " | ".join(added) if added else None
+
+
+def closed_review(run_, name):
+    """A step of a review series (SERIES) run again without the human's answer, when the newest report of the
+    series has a closure report: no `claude -p`, a second review does not start. The reason to stop: new
+    decision entries against the step's snapshot (from the state file, else taken now), then the verdict of the
+    closure report (verdict_reason); None when the chain goes on. The log of the step says the review is closed;
+    the session of the stopped step stays in the state file, so --odpowiedz resumes it as before."""
+    root, cid = run_.root, run_.cid
+    closure = closure_report(os.path.join(change_folder(root, cid), "reviews"), name)
+    snap = run_.state.get("migawka")
+    if not (isinstance(snap, dict) and snap.get("krok") == name):
+        snap = snapshot(root, cid)
+    reason = entries_reason(root, cid, snap) or verdict_reason(name, closure)
+    line = (f"przegląd jest zamknięty ({rel(root, closure)}), więc drugi przegląd nie startuje; "
+            f"nowy przegląd uruchamia człowiek: /10x-{name} {cid}")
+    session = run_.state.get("sesja")
+    logged(run_, name, 0 if reason is None else 1, [line] + ([reason] if reason else []))
+    run_.save(sesja=session)
+    if reason is not None:
+        say(f"krok {name}: {line}")
+    return reason
 
 
 def judge_step(step, code, stream, root, cid, snap):
@@ -5017,6 +5069,11 @@ def lead(run_, answer=None, resumed=None):
             elif name == "research" and answer is None and low_risk(os.path.join(run_.root, run_.trace)):
                 skipped(run_, name, SHORT_PATH)
                 reason = None
+            elif (not run_.start and name in SERIES and answer is None
+                  and committed_closure(run_.root, run_.cid, name)):
+                # The review of this series is closed (its newest report has a committed closure report): it does
+                # not run again.
+                reason = closed_review(run_, name)
             else:
                 # The installer of the guardrails right before the run or resume of the step zabezpieczenia of the
                 # start (E11): its exit code other than 0 stops the start, and the step does not run.

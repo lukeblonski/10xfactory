@@ -4,19 +4,26 @@ Treść tej polityki to decyzja człowieka. Agent jej nie zmienia. Propozycję z
 
 ## Kolejność
 
-Agent triage stosuje reguły w tej kolejności: bramka, zapętlenie, waga. Pierwsza pasująca reguła rozstrzyga.
+Agent triage najpierw sprawdza bramkę, potem przy każdej uwadze zadaje pytania z sekcji „Pytania przy każdej uwadze”. Pierwsza pasująca reguła rozstrzyga.
 
 ## Bramka
 
 Poprawka uwagi CRITICAL albo WARNING, która trafia na bramkę z sekcji „Kiedy pytać człowieka” w `CLAUDE.md`, idzie do człowieka (ESCALATE, reguła `bramka <n>` z numerem bramki). Poprawka w zakresie zgody z góry z `change.md` (ścieżki, płatne przebiegi) na tę bramkę nie trafia. Innego powodu pytania człowieka ta polityka nie ma.
 
-## Zapętlenie
+## Pytania przy każdej uwadze
 
-Reguła `zapętlenie` działa od rundy 2: ten sam mechanizm wraca z powiązanymi uwagami (wobec `## Decyzje triage` wcześniejszych raportów tej serii) albo poprawka z poprzedniej rundy wprowadziła błąd. Agent nie łata wtedy dalej tego fragmentu.
+Przy każdej uwadze agent triage odpowiada na dwa pytania:
 
-- Reguła obejmuje tylko uwagi do naprawy (CRITICAL albo WARNING). Uwaga OBSERVATION w zapętlonym fragmencie dostaje `AUTO-SKIP (OBSERVATION)`.
-- Przepisanie (`AUTO-FIX (zapętlenie)`): raport dostaje akapit „Dlaczego to się powtarza”. Poprawki fragmentu są cofane do stanu sprzed pierwszej łaty, czyli sprzed commitu z ` · commit <sha>` w `## Decyzje triage`: treść fragmentu bierze się z `git show <sha>^:<plik>` i zastępuje tylko ten fragment. Poprawki innych uwag w tych samych plikach zostają; cały plik wolno przywrócić tylko, gdy ten commit zmienił go wyłącznie dla uwag objętych zapętleniem. Potem fragment jest pisany od nowa, prościej, bez tej przyczyny. To jedna próba, bez człowieka.
-- Twarde zatrzymanie (`AUTO-LIMIT (zapętlenie)`): gdy następna runda dalej ma w tym fragmencie uwagę do naprawy albo zapętlenie wypada w rundzie 3. Funkcja zostaje wyłączona (kod) albo wycięta z zakresu (plan, do „What We're NOT Doing”), a każda objęta uwaga dostaje wpis w rejestrze z warunkiem powrotu. Człowiek dostaje pytanie tylko, gdy wyłączenie łamie kryterium akceptacji (`bramka 1`).
+1. Czy to się zdarzy przy normalnym używaniu? Dowodem jest scenariusz człowieka, kryterium akceptacji albo zwykła ścieżka opisana w `change.md`.
+2. Czy to atak z „Chroni przed”? Dowodem jest model zagrożenia w `change.md`.
+
+Odpowiedzi dają jeden z trzech wyników:
+
+- FIX z regułą `normalne używanie`: prawdziwy błąd albo złamane kryterium akceptacji, które zdarzą się przy normalnym używaniu. FIX z regułą `Chroni przed`: atak wymieniony w „Chroni przed”.
+- LIMIT z regułą `przypadek szczególny`: przypadek szczególny albo wymyślony, którego nie ma w „Chroni przed”. Uwaga dostaje wpis w rejestrze z polem „Kiedy wrócić” i nie dostaje poprawki.
+- SKIP z regułą `styl`: styl, nazwy, opis. Uwaga dostaje jedną linię w raporcie, bez poprawki i bez rejestru.
+
+Waga nadana przez recenzenta nie zmienia wyniku tych pytań. Uwaga oznaczona jako CRITICAL, która dotyczy tylko przypadku wymyślonego spoza „Chroni przed”, idzie do rejestru.
 
 ## Waga
 
@@ -24,13 +31,13 @@ Reguła `zapętlenie` działa od rundy 2: ten sam mechanizm wraca z powiązanymi
 - `WARNING` — prawdziwy błąd w sytuacji, która zdarza się przy zwykłej pracy, bez złamanego kryterium.
 - `OBSERVATION` — styl, nazwy, opis, przypadek hipotetyczny.
 
-Reguły wagi:
-
-- CRITICAL jest zawsze naprawiana (FIX, reguła `CRITICAL`).
-- WARNING jest naprawiana w rundach 1–2 (FIX, reguła `WARNING`), a w rundzie 3 idzie do rejestru (LIMIT, reguła `WARNING, runda 3`).
-- OBSERVATION jest pomijana jedną linią w raporcie (SKIP, reguła `OBSERVATION`), bez poprawki i bez rejestru.
+Waga opisuje uwagę i ustala kolejność w raporcie. O wyniku triage'u decydują pytania z poprzedniej sekcji.
 
 Gdy zmiana nie opisuje modelu zagrożenia, przyjmij „przypadkowy błąd agenta, nie celowe obejście” i zapisz to założenie.
+
+## Znany rodzaj błędu
+
+Uwaga o znanym rodzaju błędu (np. wstrzyknięcie SQL, brak kontroli dostępu, niebezpieczna deserializacja) ma w raporcie źródło sposobu naprawy: OWASP Cheat Sheet Series, wpis CWE albo dokumentację narzędzia, podane nazwą i identyfikatorem, z jednym zdaniem o sposobie naprawy. Gdy taka uwaga dostaje FIX, naprawa idzie tym sposobem. Uwaga bez źródła idzie zwykłą drogą pytań, bez osobnej kontroli.
 
 ## Wpis w rejestrze
 
@@ -48,6 +55,8 @@ Wybierz opcję zgodną z intencją i „Czego nie robimy”. Przy remisie wybier
 
 Triage robi subagent w świeżym kontekście. Nie pisał kodu ani raportu. Czyta tylko raport, `change.md`, `plan.md`, `lessons.md`, politykę, diff zmiany i sekcję „Kiedy pytać człowieka” z `CLAUDE.md` fabryki (z `docs/zgoda-czlowieka.md` obok, gdy ocenia bramkę 2).
 
-## Ponowne review
+## Sprawdzenie zamknięcia
 
-Po poprawkach uwag CRITICAL albo WARNING albo po przepisaniu przy zapętleniu kolejne review robi subagent w świeżym kontekście, gdy runda jest niższa niż 3. Obejmuje tylko commit z poprawkami i zapisuje następny numerowany raport. Rundy liczą się w całej zmianie: numer rundy to liczba raportów tego przeglądu w `reviews/` zmiany plus jeden, także gdy przegląd uruchamia człowiek albo autopilot. Rundy 4 nie ma. W rundzie 3 poprawki uwag CRITICAL sprawdzają polecenia, bez ponownego review.
+Po poprawkach przegląd kończy jedno sprawdzenie zamknięcia. Robi je subagent w świeżym kontekście, który nie pisał ani poprawek, ani raportu. Dostaje listę uwag z FIX i przy każdej zapisuje „załatwione” albo „niezałatwione” z dowodem. Uruchamia testy i sprawdza kryteria akceptacji, które dostarczają przeglądane fazy. Przy uwadze ze źródłem sprawdza, czy poprawka użyła sposobu ze źródła. Spraw spoza listy nie zgłasza.
+
+Uwaga „niezałatwiona” dostaje jedną próbę naprawy. Po niej nowy subagent w świeżym kontekście sprawdza tylko te uwagi. Uwaga dalej niezałatwiona idzie do człowieka (ESCALATE, reguła `niezałatwione`) z dowodami ze sprawdzenia zamknięcia. Drugiego przeglądu nie ma.

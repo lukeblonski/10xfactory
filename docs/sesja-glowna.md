@@ -185,7 +185,7 @@ Pliki zmienia jeden proces naraz. Sesja edytuje pliki zmiany i plik stanu tylko 
 
 Reguła samonaprawy. Sesja najpierw naprawia sama, gdy naprawa spełnia wszystkie cztery warunki:
 
-1. **Darmowa.** Nie uruchamia płatnego przebiegu. „Płatny przebieg” w tej regule to płatne testy fabryki: `scripts/run_evals.sh`. Zwykłe kroki agentów (ponowny krok `claude -p` autopilota) są dozwolone. Ponowny przegląd recenzenta nie jest darmowy: wolno go tylko w limicie trzech rund przeglądu na całą zmianę (polityka triage'u, „Ponowne review”).
+1. **Darmowa.** Nie uruchamia płatnego przebiegu. „Płatny przebieg” w tej regule to płatne testy fabryki: `scripts/run_evals.sh`. Zwykłe kroki agentów (ponowny krok `claude -p` autopilota) są dozwolone. Drugi przegląd recenzenta nie jest darmowy: przegląd planu i przegląd kodu to jeden pełny przegląd i jedno sprawdzenie zamknięcia poprawek (polityka triage'u, „Sprawdzenie zamknięcia”).
 2. **Odwracalna.** Da się ją cofnąć zwykłym commitem. Nie usuwa danych, nie przepisuje historii gita (bez `rebase`, `reset --hard`, `commit --amend` i `push --force`) i nie scala PR-a, który czeka na człowieka.
 3. **Poza bramkami.** Nie trafia na żadną bramkę z „Kiedy pytać człowieka” w `CLAUDE.md`. Dodatkowo nie zmienia zasad budowy (`docs/zasady-budowy.md`). Nie rozstrzyga też wpisu w `## Wymaga Twojej decyzji`.
 4. **Sprawdzalna.** Polecenie pokazuje, że naprawa działa, np. polecenie, które padło, kończy się kodem 0 albo polecenie verify z `CLAUDE.md` przechodzi.

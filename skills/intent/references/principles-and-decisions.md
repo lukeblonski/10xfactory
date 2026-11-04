@@ -80,7 +80,7 @@ A finding knowingly left unfixed. It lives in the limitation register `context/f
 - Pytanie: czy naprawić teraz to, że widok tygodnia nie pokazuje rezerwacji zrobionej w innej karcie bez przeładowania?
 - Wybór: nie; ograniczenie zostaje. Rezerwacje zmieniają się rzadko, a przeładowanie wystarcza.
 - Kto zdecydował: model (10x-impl-review)
-- Podstawa: reviews/impl-review.md F4, reguła WARNING, runda 3
+- Podstawa: reviews/impl-review.md F4, reguła przypadek szczególny
 - Kiedy wrócić: zmiana dotyka `src/week/` albo aplikacja ma prawdziwych użytkowników.
 - Źródło: widok-tygodnia — `reviews/impl-review.md` F4
 - Status: obowiązuje
@@ -89,7 +89,7 @@ A finding knowingly left unfixed. It lives in the limitation register `context/f
 
 - Fields in this order: `Pytanie`, `Wybór`, `Kto zdecydował`, `Podstawa`, `Kiedy wrócić`, `Źródło`, `Status`, `Zmiana`.
 - `Kto zdecydował`: `model (<skill>)` for a policy decision, `człowiek` for a limitation the human accepted.
-- `Podstawa`: the report and finding and the policy rule (e.g. `WARNING, runda 3` or `zapętlenie w rundzie <N>`); for a human, their words.
+- `Podstawa`: the report and finding and the policy rule (e.g. `przypadek szczególny` or `bramka 2`); for a human, their words.
 - `Kiedy wrócić`: the condition under which the limitation starts to matter, named so a retrospective can recognise it in a change's traces: a file or directory the change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users).
 - `Źródło`: the change the limitation comes from and the place, in backticks: `<change-id> — \`<path>:<line>\`` or `<change-id> — \`<report>\` F<n>`. `Zmiana` names the change that writes the entry; when the two differ, `Źródło` keeps the origin.
 - Status: `obowiązuje` while the limitation stands; `naprawione w <change-id> (<sha>)` once a change fixes it (only `Status` changes), and that change moves the entry to the archive.

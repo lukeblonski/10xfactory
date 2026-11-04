@@ -14,7 +14,7 @@ With the plain 10x skills you run each step yourself (`/10x-plan`, `/10x-impleme
 - **Deployment as a roadmap item.** Deploys through GitHub Actions; secrets go from local files to GitHub secrets without passing through the chat.
 - **The `intent` skill.** Every change starts with a contract: problem, expected effect, your scenario step by step, numbered acceptance criteria that a command or a verifier agent can check, and a risk level.
 - **Situational steps, like in 10x.** Low-risk changes skip research. When your request looks like "X is broken, do Y", the session first runs `/10x-frame` with you. Plan review and code review always run.
-- **Review triage.** Review findings are fixed, deferred to a limitations register, or escalated to you by written rules, with a limit on review rounds.
+- **Review triage.** Each plan review and code review is one full review followed by one closure check of the fixes. A finding is fixed when it would happen in normal use, breaks an acceptance criterion or is an attack the intent protects against. A rare edge case outside that goes to a limitations register with a condition for coming back to it, and style or naming notes are skipped with one line.
 - **Guardrails.** Hooks that block writes to protected files, secrets in code and edits to locked tests, plus sandbox defaults for the agent.
 - **Human gates.** Paid runs, sending data to outside services, publishing, changes to protected files and irreversible operations always wait for you.
 
@@ -68,13 +68,18 @@ For later work in that project, write (in Polish) „zrób zmianę: <what you wa
 - **Agent steps cannot read skill files in your configuration folder**, so reviews run without some reference files.
 - **Only 10xDevs 3.0 skills are supported.**
 
-This is the final version of 10xfactory. It will not be updated.
-
 ## Changelog
+
+### 1.3.0 — 2026-11-04
+What changed since 1.2:
+- 10xfactory keeps getting updates; 1.2 is no longer the final version.
+- Plan review and code review run once: one full review, then one closure check that marks each fix as done or not done, runs the tests and checks the acceptance criteria. There is no second or third review round looking for new problems in the fixes.
+- A finding is fixed only when it would happen in normal use, breaks an acceptance criterion in normal use or is an attack listed under "protects against" in the intent. Rare edge cases go to the limitations register with a condition for coming back to them; style, naming and wording notes are skipped with one line.
+- For a known kind of bug the reviewer names the source of the standard fix (OWASP Cheat Sheet Series, a CWE entry or the tool's documentation), the fix follows it, and the closure check confirms it was used.
+- A fix that is still not done after one more attempt ends the review with one question to you.
 
 ### 1.2.0 — 2026-11-04
 What changed since 1.1:
-- This is the final version of 10xfactory. It will not be updated.
 - Roadmaps have fewer, larger items. A new item starts only where you need to see or accept something, where outside access is needed, at a human gate or for a separate large risk. The smaller stories in between become phases of one change.
 - The project start installs the guardrails by itself, so you no longer paste a `!` command. The installer stops without writing when a file it reads or writes is a link or lies outside the project.
 - Guardrails no longer run a linter after every edit, because that hook ran outside the sandbox. Lint runs in the project's verify command.

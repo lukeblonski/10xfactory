@@ -20,7 +20,6 @@ Pozycja to plik albo katalog. Katalog kończy się `/` i obejmuje wszystko pod n
 - `scripts/eval_common.sh` — wspólne uruchomienie testów w piaskownicy.
 - `scripts/eval_chain.sh` — test całego przebiegu autopilota w klonie piaskownicy.
 - `scripts/eval_intent.sh` — test `intent`.
-- `scripts/eval_triage.sh` — test triage'u.
 - `scripts/eval_reviewer.sh` — test recenzenta na zasianych błędach.
 - `scripts/e2e_guardrails.sh` — test zabezpieczeń na prawdziwym Claude Code.
 - `scripts/create_sandbox.sh` — piaskownica, w której działają testy.
@@ -33,6 +32,10 @@ Pozycja to plik albo katalog. Katalog kończy się `/` i obejmuje wszystko pod n
 ### Zabezpieczenia aplikacji
 
 - `skills/guardrails/` — cały skill zabezpieczeń aplikacji: szablony (CI gałęzi z linią `# autopilot: ci-galezi` w `templates/ci.yml`, na które autopilot czeka przed scaleniem, piaskownica i hooki w `templates/guardrails.json`, agent weryfikujący w `templates/verifier.md`), instalator `scripts/install.py`, który zapisuje piaskownicę i hooki aplikacji, same hooki w `scripts/hooks/` oraz `SKILL.md`.
+
+### Instalator serwera
+
+- `instalator/` — instalator serwera: skrypt instalacji, reguła sudo obserwatora, skrypty startowe, usługi systemu i wzór umowy i granic obserwatora.
 
 ### Ta lista
 
@@ -58,8 +61,8 @@ Zmiana pliku z tej listy uruchamia płatny test fabryki (krok `testy-fabryki` au
 - `skills/10x-implement/references/` → `chain` (ok. 2,59 USD)
 - `skills/10x-archive/` → `chain` (ok. 2,59 USD)
 - `skills/retro/` → `chain` (ok. 2,59 USD)
-- `skills/10x-plan-review/` → `chain` (ok. 2,59 USD), `triage` (ok. 2,22 USD)
-- `skills/10x-impl-review/` → `chain` (ok. 2,59 USD), `triage` (ok. 2,22 USD)
+- `skills/10x-plan-review/` → `chain` (ok. 2,59 USD)
+- `skills/10x-impl-review/` → `chain` (ok. 2,59 USD)
 - `skills/10x-impl-review/scripts/validate_change.py` → `intent` (ok. 0,57 USD)
 - `skills/intent/` → `intent` (ok. 0,57 USD)
 - `skills/guardrails/` → `guardrails` (ok. 0,04 USD)
