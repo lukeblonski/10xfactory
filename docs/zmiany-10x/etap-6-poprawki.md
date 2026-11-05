@@ -3,7 +3,7 @@
 - **Zakres:** gałąź `etap-6-poprawki` od `5bbf20a` (`master` przed zmianą) do zamknięcia zmiany.
 - **Lista skilli:** `git diff --name-only master...HEAD -- 'skills/10x-*'`. Sekcje dostają skille `10x-*` z tej listy.
 - **Poza skillami:** kolejność zapisu stanu autopilota przy wznowieniu, programy testów w kroku planu testów, instalacja zabezpieczeń przez autopilota przed krokiem `zabezpieczenia`, zabezpieczenia bez szybkiej kontroli po edycji i pomiar według celu wersji (`scripts/autopilot.py`, `scripts/pomiar.py`, `skills/guardrails/`, `skills/retro/`, dokumenty startu i sesji). Ich kod jest publikowany wprost, więc nie mają tu sekcji.
-- **Źródło:** polecenie człowieka 2026-11-03 (poprawki po budowie modu context-insight, etap 6); decyzja D-467 o celu fabryki w `context/foundation/decisions.md`.
+- **Źródło:** polecenie człowieka 2026-11-03 (poprawki po budowie modu context-insight, etap 6); decyzja D-467 o celu fabryki w `context/foundation/decisions-archive.md`.
 
 Opis nie cytuje skilli. Opis jest dla ludzi: w paczce zmiany w skillach `10x-*` nanosi `scripts/instaluj.py` z przepisu `zmiany-10x.json`.
 

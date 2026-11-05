@@ -4,12 +4,12 @@ Pełne sprawdzenie to `python3 -m unittest discover -s scripts -p 'test_*.py' &&
 
 Commit, który zmienia tylko pliki `.md` poza `context/`, uruchamia tylko `python3 scripts/check_refs.py && python3 scripts/check_no_copy.py`, a gdy zmienia `paczka/README.md`, także sprawdzenie eksportu z `docs/publikacja-paczki.md`, punkt 1. Commit, który zmienia tylko pliki w `context/`, nie wymaga sprawdzenia.
 
-Ostatni poprawny przebieg pełnego sprawdzenia (2026-11-03):
+Ostatni poprawny przebieg pełnego sprawdzenia (2026-11-05):
 
 ```
 OK (skipped=1)
 OK: all references in <fabryka>/skills resolve
-OK: 38812 runs of 8 words in 22 description files and 4 own skills (skills/fabryka, skills/guardrails, skills/intent, skills/retro; 23 files), no copy of upstream-10x (54 files)
+OK: 35220 runs of 8 words in 25 description files and 3 own skills (skills/fabryka, skills/guardrails, skills/intent; 21 files), no copy of upstream-10x (54 files)
 ```
 
 ## Najpierw minimum
@@ -43,7 +43,6 @@ Zasady stylu dotyczą tylko tekstu, który agent pisze do człowieka: odpowiedzi
 - Nie dopisuj notatek, o które człowiek nie prosił.
 - Nie angażuj człowieka w mechanikę, którą może zrobić agent.
 - Bez cytatów wklejonych w środek zdania i bez zagnieżdżonych kontrargumentów.
-- Na końcu zadaj jedno pytanie.
 
 Słownik. Samego słowa „fabryka” bez dopowiedzenia nie używamy.
 
@@ -58,12 +57,12 @@ Słownik. Samego słowa „fabryka” bez dopowiedzenia nie używamy.
 Kiedy pytać człowieka:
 
 - Zawęź, zanim zapytasz. Zanim zapytasz, weź opcję najlepszą dla celu zmiany i sprawdź, czy jej wadę da się usunąć, zawężając ją. Jeśli tak, poleć tę zawężoną wersję i napisz, co zawężenie zmienia. Sprawdź też w źródle (typy, dokumentacja, kryterium), czy opis opcji i jej przyczyny się z nim zgadza.
-- Pytaj raz o wszystkie bramki. Przed pytaniem z bramki agent zbiera wszystkie decyzje z bramek, których krok albo zmiana prawdopodobnie dotknie: ścieżki z `docs/zgoda-czlowieka.md`, płatne testy fabryki ponad budżet z bramki 3, inne płatne przebiegi, wysyłkę danych i płatne usługi. Lista ścieżek obejmuje też chroniony test zachowania skilla, który zmiana zmienia (np. `scripts/e2e_guardrails.sh` przy zmianie hooków guardrails), a sumę płatnych testów fabryki liczy się z całego zestawu testów, który krok `testy-fabryki` uruchomi dla zmienianych plików. Pyta o nie raz, w jednym pytaniu, z kosztem płatnego przebiegu w tym samym pytaniu.
+- Pytaj raz o wszystkie bramki. Przed pytaniem z bramki agent zbiera wszystkie decyzje z bramek, których krok albo zmiana prawdopodobnie dotknie: ścieżki z `docs/zgoda-czlowieka.md`, płatne testy fabryki ponad budżet z bramki 3, inne płatne przebiegi, wysyłkę danych i płatne usługi. Lista ścieżek obejmuje też chroniony test zachowania skilla, który zmiana zmienia (np. `scripts/e2e_guardrails.sh` przy zmianie hooków guardrails), a sumę płatnych testów fabryki liczy się z testów, które krok, plan albo sesja sama uruchomi. Pyta o nie raz, w jednym pytaniu, z kosztem płatnego przebiegu w tym samym pytaniu.
 - Fakty o usługach zewnętrznych sprawdzaj w źródle. Gdy decyzja zależy od ceny, prędkości albo dostępności usługi zewnętrznej, agent sprawdza je w źródle (dokumentacja, cennik, strona statusu, polecenie narzędzia). Gdy nie może, mówi to wprost i decyduje według najgorszego przypadku.
 - Agent pyta człowieka tylko, gdy decyzja trafia na jedną z sześciu bramek:
   1. zmienia intencję albo kryteria akceptacji w `change.md` zmiany albo zmienia decyzję, którą człowiek podjął w tej zmianie (linia z `rozstrzygnął: człowiek` w `## Pytania do człowieka`), albo robi od niej wyjątek;
   2. dotyka ścieżki z `docs/zgoda-czlowieka.md` (sekcja `## Ścieżki`) albo usuwa krok łańcucha (sekcja `## Usunięcie kroku łańcucha` tego pliku);
-  3. wymaga płatnego przebiegu albo wysyłki danych: płatne testy fabryki (`scripts/run_evals.sh`) do 10 USD na zmianę, liczone ze średnich kosztów z sekcji „Płatne testy skilli” w `docs/zgoda-czlowieka.md`, idą bez pytania, a pytanie pada, gdy zmiana potrzebuje więcej; wysyłka danych zawsze idzie do człowieka;
+  3. wymaga płatnego przebiegu albo wysyłki danych: płatne testy fabryki (`scripts/run_evals.sh`) do 10 USD na zmianę albo jedno wydanie, na żądanie człowieka albo przed wydaniem, liczone ze średnich kosztów z sekcji „Płatne testy skilli” w `docs/zgoda-czlowieka.md`, idą bez pytania, a pytanie pada, gdy potrzeba więcej; wysyłka danych zawsze idzie do człowieka;
   4. coś upublicznia;
   5. zmienia ustawienia globalne (`~/.claude`);
   6. prowadzi do operacji trudnej do cofnięcia: usuwa dane, przepisuje historię gita, zmienia coś poza repozytorium zmiany.

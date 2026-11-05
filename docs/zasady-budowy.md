@@ -4,7 +4,7 @@ Stałe zasady dla każdego etapu. Prompt etapu odsyła do tego pliku. Agent czyt
 
 ## 1. Nazwy własnych skilli
 
-- Skille, które tworzymy od zera, nie mają prefiksu `10x-`. Przykłady: `guardrails`, `intent`, `autopilot`, `retro`, `babysit`.
+- Skille, które tworzymy od zera, nie mają prefiksu `10x-`. Przykłady: `guardrails`, `intent`, `autopilot`, `babysit`.
 - Prefiks `10x-` mają tylko skille z kursu.
 - Przed nadaniem nazwy sprawdź, czy nie koliduje z innym skillem w `~/.claude/skills`, z wbudowaną komendą Claude Code ani ze skillem z zainstalowanej wtyczki. Przy kolizji zaproponuj inną nazwę w Notes.
 
@@ -27,7 +27,7 @@ Gdy kryteria akceptacji nie obejmują czegoś, czego wymaga oczekiwany efekt z i
 
 ## 4. Gałęzie
 
-Każdy etap pracuje na własnej gałęzi o nazwie zmiany, np. `etap-3-dowody`. Kolejność: review na gałęzi, archiwum na gałęzi (`/10x-archive`), `git merge --ff-only` do `master`, `git push`, a na końcu propozycje retrospektywy (punkt 9).
+Każdy etap pracuje na własnej gałęzi o nazwie zmiany, np. `etap-3-dowody`. Kolejność: review na gałęzi, archiwum na gałęzi (`/10x-archive`), `git merge --ff-only` do `master`, `git push`, a na końcu liczby zmiany z `scripts/pomiar.py`.
 
 ## 5. Kontekst
 
@@ -38,16 +38,18 @@ Każdy etap pracuje na własnej gałęzi o nazwie zmiany, np. `etap-3-dowody`. K
 
 ## 6. Interwencje człowieka
 
-Każda instrukcja człowieka spoza zwykłego przebiegu skilli trafia do `change.md` w sekcji `## Interwencje`. Dotyczy to triage'u podjętego przez człowieka, zmiany podejścia, ręcznego podziału pracy, poprawki promptu i każdej innej wklejonej instrukcji. Dotyczy to też instrukcji w prompcie startowym, które odbiegają od zwykłego łańcucha skilli, np. pominięcia kroku. Taki wpis powstaje na początku zmiany, razem z `change.md`. Retrospektywa uczy się z tych wpisów.
+Każda instrukcja człowieka spoza zwykłego przebiegu skilli trafia do `change.md` w sekcji `## Interwencje`. Dotyczy to triage'u podjętego przez człowieka, zmiany podejścia, ręcznego podziału pracy, poprawki promptu i każdej innej wklejonej instrukcji. Dotyczy to też instrukcji w prompcie startowym, które odbiegają od zwykłego łańcucha skilli, np. pominięcia kroku. Taki wpis powstaje na początku zmiany, razem z `change.md`. Analiza w poprzek zmian (punkt 9) uczy się z tych wpisów.
 
 Format jednego wpisu:
 
 - **I-N (etap, krok):** co zrobił człowiek.
   - **Dlaczego:** powód.
   - **Bez interwencji fabryka:** co zrobiłaby sama.
-  - **Możliwa reguła:** jeśli widać, jaka reguła usunęłaby potrzebę interwencji. W przeciwnym razie „do ustalenia w retrospektywie”.
+  - **Możliwa reguła:** jeśli widać, jaka reguła usunęłaby potrzebę interwencji. W przeciwnym razie „do ustalenia w analizie w poprzek zmian”.
   - **Kategoria:** jedno słowo: `kontrole`, `narzędzie`, `koszt`, `ocena` (lista z lekcji „Research odpowiada na pytania o wykonalność, zanim rozpisze zmiany, a pytanie człowieka zapisuje jako interwencję z kategorią” w `context/foundation/lessons.md`) albo `inne`. Podpunkt jest wymagany we wpisie za pytanie, które człowiek dopisał do zakresu researchu; inne wpisy go nie mają.
   - **Cofnięcie:** <rodzaj> — <powód jednym zdaniem>. Opcjonalny podpunkt we wpisie, w którym człowiek cofa decyzję agenta: rodzaj pytania (jeden z sześciu z „Pytań do człowieka” niżej) i powód, który agent zapisuje sam z dopiskiem `(powód: agent, decyzja: człowiek)`, bez pytania człowieka i bez wstrzymania przebiegu; człowiek poprawia go, jeśli trzeba (D-289). Inne wpisy go nie mają.
+
+Jedno działanie człowieka zostawia jeden ślad. Odpowiedź człowieka na pytanie agenta zostawia tylko linię w `## Pytania do człowieka`, bez wpisu `I-N`. Wpis `I-N` jest dla poleceń spoza zwykłego przebiegu, także cofnięć. `scripts/pomiar.py` liczy linię pytania i wpis `I-N` osobno, więc oba ślady jednej odpowiedzi dałyby dwie interwencje.
 
 **Pytania do człowieka.** Każde pytanie agenta do człowieka i każde pytanie rozstrzygnięte przez agenta według reguły „kiedy pytać człowieka” w `CLAUDE.md` zostawia jedną linię w sekcji `## Pytania do człowieka` w `change.md` zmiany. To osobna sekcja `## …`, bo `/intent` przepisuje tylko `## Notes`. Linię dopisuje agent, który pytał, zaraz po odpowiedzi, i commituje `change.md`. Format linii, pola w tej kolejności, rozdzielone ` · `:
 
@@ -57,7 +59,7 @@ Format jednego wpisu:
 
 - `rodzaj` to jeden z sześciu: `spór recenzenta z autorem`, `eskalacja`, `płatny przebieg`, `zakres`, `kryterium`, `inne`. `spór recenzenta z autorem` to rodzaj tylko wpisów sprzed zmiany polityka-przegladu, w której zniknął agent autora w przeglądzie.
 - Pytanie, które wymaga płatnego przebiegu, ma zawsze rodzaj `płatny przebieg`, nawet gdy dotyczy też zakresu albo kryterium.
-- `krok` to krok łańcucha, w którym padło pytanie (np. `intent`, `plan`, `plan-review`, `implement`).
+- `krok` to krok łańcucha, w którym padło pytanie (np. `intent`, `plan`, `plan-review`, `implement`). Pytanie zadane na zatrzymaniu autopilota ma w `krok` tę samą nazwę kroku co linia tego zatrzymania (np. `archiwum`, a nie `archive` ani `manual`), bo `scripts/pomiar.py` liczy pytanie i zatrzymanie z tym samym krokiem jako jedną interwencję.
 - `wybór` to `rekomendacja`, gdy rozstrzygnięcie jest zgodne z rekomendacją agenta, albo `inny: <tekst>` z tym, co wybrał człowiek.
 - `rozstrzygnął` to `człowiek`, `agent` albo `obserwator`. Przy `agent` i `obserwator` pole `wybór` to zawsze `rekomendacja`.
 
@@ -69,25 +71,21 @@ To samo dotyczy nowej pozycji w planie: etapu, kroku albo narzędzia. Zanim ją 
 
 ## 8. Testy fabryki
 
-- Po `/10x-impl-review` i jego sprawdzeniu zamknięcia, przed archiwizacją, zmiana uruchamia tylko te testy z `scripts/run_evals.sh`, które sprawdzają pliki zmienione przez gałąź. Przypisanie „plik → test” żyje w `scripts/autopilot.py` (`EVALS_FOR`) i jest zgodne z listą „Płatne testy skilli” w `docs/zgoda-czlowieka.md`. Zmiana plików samych testów fabryki (`scripts/run_evals.sh`, `scripts/eval_*.sh`, `scripts/evallib.py`, `scripts/create_sandbox.sh`, `scripts/fixtures/`) uruchamia `scripts/run_evals.sh --quick`. Zmiana, której żaden test nie sprawdza, nie uruchamia płatnego testu. Test `guardrails` sprawdza hooki zainstalowane w repo testowym z `scripts/create_sandbox.sh` (`scripts/e2e_guardrails.sh`), a nie skill z gałęzi, więc zmiana `skills/guardrails/` wymaga najpierw ponownego `/guardrails` w piaskownicy.
+- Zmiana nie uruchamia testów fabryki (`scripts/run_evals.sh`). Uruchamia je człowiek na żądanie, a sesja przed każdym wydaniem fabryki dla użytkowników: dziś przed publikacją paczki (`docs/publikacja-paczki.md`, punkt 1), tak samo przed każdym przyszłym wydaniem. Test `guardrails` sprawdza hooki zainstalowane w repo testowym z `scripts/create_sandbox.sh` (`scripts/e2e_guardrails.sh`), a nie skill z gałęzi, więc zmiana `skills/guardrails/` wymaga przed tym testem ponownego `/guardrails` w piaskownicy.
 - Zamknięcie etapu planu wdrożenia uruchamia tryb pełny, `scripts/run_evals.sh --full`.
-- Wynik trafia do `reviews/` zmiany (`--change <id>`, a bez tej flagi folder zmiany o nazwie bieżącej gałęzi). Test poniżej progu trafia do Notes jako propozycja dla człowieka.
+- Wynik trafia do `reviews/` zmiany (`--change <id>`, a bez tej flagi folder zmiany o nazwie bieżącej gałęzi) albo do folderu z `--out`. Wynik poniżej progu idzie do człowieka.
 - Progi, oczekiwane wyniki i zamrożone dane w `scripts/fixtures/` zmienia tylko człowiek. Agent nie zmienia ich po to, żeby test przeszedł.
-- Opis testów, progów, kosztów i trybów: `docs/testy-fabryki.md`.
+- Opis testów, progów, kosztów i trybów: `docs/testy.md`.
 
-## 9. Propozycje retrospektywy
+## 9. Wnioski z analizy w poprzek zmian
 
-- Propozycja, która zmienia tylko tekst (`.md`) poza ścieżkami z `docs/zgoda-czlowieka.md`, wchodzi bez decyzji człowieka. Po scaleniu zmiany nanosi ją sesja główna osobnym commitem z tematem `… (retro <id> P<n>)`, ze sprawdzeniem z `CLAUDE.md`, i podaje ją człowiekowi w podsumowaniu jako informację.
-- Zabezpieczeniem jest pomiar skutku i domyślne usunięcie poprawki bez skutku, a nie zgoda z góry.
-- Tak samo wchodzi propozycja tekstowa z retrospektywy zmiany w repo aplikacji, gdy jej miejsce docelowe jest w repo fabryki.
-- Propozycja, która zmienia kod albo plik chroniony, idzie do intencji najbliższej zmiany w repo fabryki, do sekcji „Poprawki z retrospektywy”. Człowiek zatwierdza ją razem z intencją („tak” albo np. „tak, bez P2”), bez osobnej decyzji.
-- Osobna zmiana tylko wtedy, gdy propozycja naprawia coś, co blokuje pracę.
-- Przyjmujemy propozycję, która ma co najmniej dwa wystąpienia albo naprawia realny błąd. Resztę odrzucamy z dopiskiem „wróć, gdy się powtórzy”.
-- Szczegóły: `docs/sesja-glowna.md`, sekcja „Propozycje retrospektywy”.
+- Wnioski i propozycje poprawek fabryki powstają tylko z ręcznej analizy w poprzek zmian. Robi ją obserwator w rozmowie z człowiekiem co kilka zmian albo co tydzień, z liczb `scripts/pomiar.py` i śladów zmian (D-492).
+- Ta analiza sprawdza też warunki „Kiedy wrócić” w rejestrze ograniczeń (`context/foundation/limitations.md`).
+- Poprawka z analizy wchodzi jako zwykła zmiana, po decyzji człowieka. Nic nie wchodzi samo po scaleniu zmiany.
 
 ## 10. Najpierw proste rozwiązanie
 
-Projektujemy najprostsze rozwiązanie, które spełnia cel. Rozbudowę dodajemy dopiero wtedy, gdy zapisany z góry sygnał z danych pokaże, że prosta wersja nie wystarcza. Każda propozycja rozbudowy (w intencji, planie, retrospektywie) podaje ten sygnał i dowód, że wystąpił.
+Projektujemy najprostsze rozwiązanie, które spełnia cel. Rozbudowę dodajemy dopiero wtedy, gdy zapisany z góry sygnał z danych pokaże, że prosta wersja nie wystarcza. Każda propozycja rozbudowy (w intencji, planie, analizie w poprzek zmian) podaje ten sygnał i dowód, że wystąpił.
 
 Zasada obowiązuje też przy budowie etapu ze spec. Przy każdym elemencie opisu etapu pada pytanie, czy jest potrzebny w pierwszej wersji. Element bez potrzeby w pierwszej wersji czeka na swój sygnał.
 

@@ -12,9 +12,9 @@ With the plain 10x skills you run each step yourself (`/10x-plan`, `/10x-impleme
 - **Project start from an empty folder.** A shaping conversation with you (`/10x-shape`), then PRD, tech stack, infrastructure, your one-time acceptance, project skeleton with CI, guardrails, roadmap, test plan and a private GitHub repo, without further questions.
 - **Roadmap slices.** Each roadmap item is built as a separate change through the full chain. A new item starts only where the chain stops anyway, so a roadmap has few, larger items.
 - **Deployment as a roadmap item.** Deploys through GitHub Actions; secrets go from local files to GitHub secrets without passing through the chat.
-- **The `intent` skill.** Every change starts with a contract: problem, expected effect, your scenario step by step, numbered acceptance criteria that a command or a verifier agent can check, and a risk level.
+- **The `intent` skill.** Every change starts with a contract: problem, expected effect, your scenario step by step, numbered acceptance criteria that a command or the code review can check, and a risk level.
 - **Situational steps, like in 10x.** Low-risk changes skip research. When your request looks like "X is broken, do Y", the session first runs `/10x-frame` with you. Plan review and code review always run.
-- **Review triage.** Each plan review and code review is one full review followed by one closure check of the fixes. A finding is fixed when it would happen in normal use, breaks an acceptance criterion or is an attack the intent protects against. A rare edge case outside that goes to a limitations register with a condition for coming back to it, and style or naming notes are skipped with one line.
+- **Review triage.** Each plan review and code review is one full review followed by one closure check of the fixes. A finding is fixed when it would happen in normal use, breaks an acceptance criterion or is an attack the intent protects against. A rare edge case outside that goes to a limitations register with a condition for coming back to it, and style or naming notes are skipped with one line. The code review also judges every acceptance criterion, so the archive step runs no separate verifier.
 - **Guardrails.** Hooks that block writes to protected files, secrets in code and edits to locked tests, plus sandbox defaults for the agent.
 - **Human gates.** Paid runs, sending data to outside services, publishing, changes to protected files and irreversible operations always wait for you.
 
@@ -69,6 +69,14 @@ For later work in that project, write (in Polish) „zrób zmianę: <what you wa
 - **Only 10xDevs 3.0 skills are supported.**
 
 ## Changelog
+
+### 1.4.0 — 2026-11-05
+What changed since 1.3:
+- The code review judges every acceptance criterion: the full review on the reviewed commit and, when it fixes something, the closure check on the fix commit. The archive step no longer runs a separate verifier agent. The verifier agent installed by guardrails stays in your project.
+- At the end of each run the session shows one line of numbers for the change: minutes, cost, interventions, plan and code review rounds and the share of cost outside implementation. The list of suggested factory improvements at the end of a run is gone.
+- Interventions are one count: every answer, consent, restarted stop or extra command of yours that the session needed to go on. Approving the intent does not count. The separate counts of decisions, reverts and errors after merge are gone, and the version row shows the numbers without an "on target" verdict.
+- The `intent` skill no longer reads the whole decision log. It lists the headings and opens only the entries about the same files, mechanism or words as your change.
+- While the autopilot runs in the background, the session stays quiet: you see each step when it ends, not while it runs. The session asks only when a decision needs you; otherwise its message ends with the conclusion.
 
 ### 1.3.0 — 2026-11-04
 What changed since 1.2:

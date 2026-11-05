@@ -1,49 +1,56 @@
 #!/usr/bin/env python3
-"""Numbers of the changes and verdicts of the retrospective fixes.
+"""Numbers of the changes.
 
 Usage: python3 scripts/pomiar.py [--repo DIR] [--zmiana <change-id>]
 
 Reads every context/archive/*/change.md (change_id, archived_at) with the
 files next to it and prints Markdown on stdout: `# Pomiar zmian`, `- Data:
 <today>`, `## Liczby zmian`, a table with one row per change in archived_at
-order, `## Wersja` in a repo with context/foundation/start.md, and `## Werdykty
-poprawek`. `--zmiana <change-id>` adds, as the last
-row, the change in context/changes/<change-id>/ with the cell `<change-id>
-(przed archiwum)`: skills/10x-archive/SKILL.md runs /retro before it moves the
-folder and stamps archived_at, so that folder needs no archived_at. An id that
-is already in the archive adds nothing. Only reads; standard library and one
-`git log --reverse --format=%h%x1f%ct%x1f%s HEAD`.
+order, and `## Wersja` in a repo with context/foundation/start.md.
+`--zmiana <change-id>` adds, as the last row, the change in
+context/changes/<change-id>/ with the cell `<change-id> (przed archiwum)`, so a
+change can be looked at before its archive; that folder needs no archived_at.
+An id that is already in the archive adds nothing. Only reads; standard library
+and one `git log --reverse --format=%h%x1f%ct%x1f%s HEAD`.
 
-Readers: skills/retro/SKILL.md runs `python3 scripts/pomiar.py --zmiana
-<change-id>` and copies its sections unchanged into
-context/changes/<change-id>/retro.md, in the shape of
-skills/retro/references/retro-format.md; docs/testy-fabryki.md describes the
-command.
+Readers: scripts/autopilot.py prints the row of the change it ran as the line
+`liczby zmiany <id>: …` at the end of a run (read_change, change_row,
+row_cells); docs/testy.md describes the command; in an application repo
+the main session shows `## Wersja` from `--repo <repo>`.
 
-Columns (plan of retro-liczy, phase 1):
+Columns:
 - Minuty: the sum of `Czas (s)` of the cost rows / 60, whole minutes; the cost
   rows come from koszty-krokow.md next to change.md and from the section
   `## Koszty kroków` of context/przebiegi/<change_id>.md (read_costs);
 - Koszt USD: the sum of `Koszt USD` of the same rows, two decimals;
-- Decyzje: lines of `## Pytania do człowieka` with `rozstrzygnął: człowiek`
-  and a `krok` other than `intent` (line format in docs/zasady-budowy.md,
-  point 6; parse_questions);
+- Interwencje: the actions of the human or the observer without which the
+  session could not go on alone (D-493), each counted once (interventions):
+  - lines of `## Pytania do człowieka` with `rozstrzygnął: człowiek` or
+    `rozstrzygnął: obserwator` and a `krok` outside the excluded steps (line
+    format in docs/zasady-budowy.md, point 6; parse_questions);
+  - entry headings `- **I-<n>` of `## Interwencje` (their sub-points, also
+    `Cofnięcie:`, add nothing);
+  - stop lines of `## Zatrzymania autopilota` (`- czas: … · krok: … · powód:
+    … · zrobiono: … · skutek: …`, docs/sesja-glowna.md, „Linia zatrzymania”;
+    parse_stop) whose `zrobiono:` is an action of the human or the observer
+    (HUMAN_ACTION), outside the excluded steps and outside the steps that
+    already have a counted question line in the same file;
+  - such stop lines of `## Zatrzymania po archiwum` of
+    context/przebiegi/<change_id>.md, without the comparison with questions.
+  The excluded steps are CHANGE_NOT_INTERVENTIONS in change.md (the intent)
+  and START_NOT_INTERVENTIONS in start.md (the idea, the acceptance and the
+  consents of the start). `brak danych` only without any of the four
+  sections;
 - Rundy planu, Rundy kodu: files reviews/plan-review*.md and
   reviews/impl-review*.md (REPORT_FILE), without subfolders;
-- Błędy po scaleniu: subjects of `git log --format=%s HEAD` in --repo that
-  contain `(błąd po <change_id>)` with the closing parenthesis;
 - Zmiana: the id; the row of --zmiana gets ` (bez kroku archiwum)` when it
-  has cost rows but none of the step `archiwum` (the retro runs inside that
-  step, so its sums are short of the ones after the archive);
-- Cofnięcia: `  - **Cofnięcie:** <rodzaj> — <powód>` sub-points of
-  `## Interwencje` (parse_undo); 0 without the section;
+  has cost rows but none of the step `archiwum` (its sums are short of the
+  ones after the archive);
 - Narzut łańcucha: the sum of `Koszt USD` of the cost rows whose `Krok` is
   not `implement`, by the sum of `Koszt USD` of all of them, whole per cent
   (overhead).
 No cost row gives `brak danych` in Minuty, Koszt USD and Narzut łańcucha (a
-sum of 0 too in Narzut łańcucha); no `## Pytania do człowieka` gives `brak
-danych` in Decyzje; a failing `git log` gives `brak danych` in Błędy po
-scaleniu.
+sum of 0 too in Narzut łańcucha).
 
 Under the table one line `Poprawki poza zmianami: <n> (<short shas>)`, an
 estimate for the human: commits of `git log HEAD` whose subject starts with
@@ -51,59 +58,26 @@ estimate for the human: commits of `git log HEAD` whose subject starts with
 context/changes/, and which have no `(retro ` in the subject.
 
 Wersja: only when context/foundation/start.md exists (an application repo),
-after that line, one row with the measures of the goal of the version in
-context/foundation/prd.md (version_row), over start.md and the changes of the
-table (the archived ones and the one of --zmiana):
+after that line, one row over start.md and the changes of the table (the
+archived ones and the one of --zmiana), without a verdict and without a
+threshold (version_row):
 - Zmiany: the number of rows of `## Liczby zmian`;
-- Interwencje: lines of `## Pytania do człowieka` of start.md and of every
-  change with `rozstrzygnął: człowiek` or `rozstrzygnął: obserwator` and a
-  `krok` other than those of NOT_INTERVENTIONS (the owner's idea, the
-  acceptance and the consents of the start); `brak danych` when no source has
-  the section;
-- Błędy po scaleniu: the sum of the rows (0 without a change);
-- Cofnięcia: the sum of the rows plus the `Cofnięcie:` sub-points of
-  `## Interwencje` of start.md;
+- Interwencje: the interventions of start.md and of every change, counted as
+  in a row; `brak danych` when no source has data;
 - Narzut łańcucha: as in a row, over the cost rows of `## Koszty kroków` of
-  start.md and of every change;
-- W celu: `nie` when a known value is over the goal (Interwencje over
-  MAX_INTERVENTIONS, Błędy po scaleniu or Cofnięcia over 0), `tak` when all
-  three are known and within, otherwise `brak danych`; Narzut łańcucha has no
-  threshold and does not count.
-
-Werdykty poprawek (plan of retro-liczy, phase 2): one row per proposal
-`#### P<n>. <tytuł>` in `## Propozycje` of context/archive/*/retro.md whose
-`- **Co ma się zmienić**:` is `<kolumna> (<change-id>: <wartość>); kierunek:
-<w dół|w górę>` with a number column of `## Liczby zmian`; any other field is
-skipped. A proposal without a row: `Rekomendacja: nie`, a heading
-`Odrzucona propozycja <id> P<n>` or `zostaw <target>` for a proposal titled
-`Usunąć poprawkę <target>` in context/foundation/decisions.md, or a commit
-`Revert "… (retro <id> P<n>)"`. The fix commit is the oldest subject with
-`(retro <id> P<n>)` or the commit `chore(archive): close <cid>` of an archived
-change that lists `<id> P<n>` in `## Poprawki z retrospektywy`, whichever is
-earlier. Before: the last 3 changes archived before that commit; after: the
-changes (with the --zmiana row) whose oldest commit with `(<cid>)` is later.
-The number is the mean of the column without `brak danych`. Verdict: `nie
-weszła` without a commit once a later change is archived (`czeka` before);
-`czeka` with fewer than 3 changes after; for k = 3…n the mean of the first k
-after against the mean before: worse, or a higher mean of Błędy po scaleniu
-or Cofnięcia, is `szkodzi`; better without those is `działa`, or `wróciło`
-when the last 3 after no longer give `działa`; nothing by 6 changes after is
-`bez skutku`. No mean on one side decides nothing; no mean before stays
-`czeka`. Without any row the
-section says `Brak.`; a failing `git log` says `Brak danych: <git message>`.
+  start.md and of every change.
 
 The reading part (section_lines, parse_questions, QuestionError, QUESTIONS,
 KINDS, …) is a library: scripts/autopilot.py imports it, also in the exported
 package.
 
-Bad question or undo lines print `BŁĄD PYTANIA: <file>:<line>: …`, a cost row
-with another number of cells than its header prints `BŁĄD KOSZTÓW: <file>: …`
-(of start.md too),
-a `Co ma się zmienić` with `; kierunek: w…` (of an archived change or of the
-`--zmiana` change) that does not match the shape or has no known column prints
-`BŁĄD POPRAWKI: <file>:<line>: …`, all after the full output.
+Bad question or undo lines (`Cofnięcie:` sub-points of `## Interwencje`,
+parse_undo) print `BŁĄD PYTANIA: <file>:<line>: …`, a cost row with another
+number of cells than its header prints `BŁĄD KOSZTÓW: <file>: …` (of start.md
+too), all after the full output. Stop lines are never errors: the archive is
+immutable.
 
-Exit codes: 0 OK; 1 a bad question, undo, cost or fix line; 2 no context/archive/
+Exit codes: 0 OK; 1 a bad question, undo or cost line; 2 no context/archive/
 or no change in it in a repo without context/foundation/start.md (with it the
 table of changes is empty), an archived change without `archived_at` of the form
 YYYY-MM-DDTHH:MM:SSZ, a bad argument, or `--zmiana` with an id that is
@@ -115,7 +89,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import date, datetime, timezone
+from datetime import date
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NO_DATA = "brak danych"
@@ -137,8 +111,6 @@ QUESTION_FIELDS = ("rodzaj", "krok", "pytanie", "rekomendacja", "wybór", "rozst
 QUESTION_KEYS = ("kind", "step", "question", "recommendation", "choice", "by")
 QUESTION_LINE = re.compile("^- " + " · ".join(f"{name}: (.+?)" for name in QUESTION_FIELDS) + "$")
 DECIDERS = ("człowiek", "agent", "obserwator")
-HUMAN = "człowiek"
-INTENT_STEP = "intent"
 # Deciders whose line always has `wybór: rekomendacja`.
 AUTOMATIC = ("agent", "obserwator")
 AGREED = "rekomendacja"
@@ -154,44 +126,36 @@ COST_COLUMNS = ("Krok", "Czas (s)", "Koszt USD")
 IMPLEMENT_STEP = "implement"
 # The table `## Liczby zmian`.
 CHANGES = "Liczby zmian"
-CHANGES_COLUMNS = ("Zmiana", "Minuty", "Koszt USD", "Decyzje", "Rundy planu", "Rundy kodu", "Błędy po scaleniu",
-                   "Cofnięcia", "Narzut łańcucha")
+CHANGES_COLUMNS = ("Zmiana", "Minuty", "Koszt USD", "Interwencje", "Rundy planu", "Rundy kodu", "Narzut łańcucha")
 CHANGES_HEADER = "| " + " | ".join(CHANGES_COLUMNS) + " |"
-# The section `## Wersja` of an application repo: the goal of the version in context/foundation/prd.md (D-467).
+# The section `## Wersja` of an application repo.
 START_FILE = os.path.join("context", "foundation", "start.md")
 VERSION = "Wersja"
-VERSION_COLUMNS = ("Zmiany", "Interwencje", "Błędy po scaleniu", "Cofnięcia", "Narzut łańcucha", "W celu")
+VERSION_COLUMNS = ("Zmiany", "Interwencje", "Narzut łańcucha")
 VERSION_HEADER = "| " + " | ".join(VERSION_COLUMNS) + " |"
+# Interventions (D-493): who intervenes, the traces and the steps whose lines are the order of the work, not an
+# intervention: the intent in change.md; the owner's idea, the acceptance and the consents in start.md.
 INTERVENERS = ("człowiek", "obserwator")
-# Steps of the owner's idea, the acceptance and the consents of the start: their lines are no interventions.
-NOT_INTERVENTIONS = ("intent", "intencja", "akceptacja", "bramki", "dostępy")
-MAX_INTERVENTIONS = 3
+CHANGE_NOT_INTERVENTIONS = ("intent", "intencja")
+START_NOT_INTERVENTIONS = ("intent", "intencja", "akceptacja", "bramki", "dostępy")
+INTERVENTIONS = "Interwencje"
+ENTRY = re.compile(r"^- \*\*I-\d+")
+STOPS = "Zatrzymania autopilota"
+STOPS_AFTER_ARCHIVE = "Zatrzymania po archiwum"
+STOP_STEP = re.compile(r"(?:^- |\s·\s)krok: (.*?)\s·\s")
+STOP_DONE = " · zrobiono: "
+STOP_EFFECT = " · skutek: "
+# `zrobiono:` of an action of the human or the observer (docs/sesja-glowna.md, „Linia zatrzymania”): it starts with
+# `decyzja człowieka`, `decyzja obserwatora`, or `przyjęcie`/`zgoda` with any addition before `: człowiek` or
+# `: obserwator` (`przyjęcie: człowiek, --przyjmij`, `zgoda: człowiek, …`, `zgoda na scalenie: człowiek, …`).
+# `samonaprawa: …`, a bare `przyjęcie`, `przyjęcie: agent, …` and `—` are none.
+HUMAN_ACTION = re.compile(r"^(?:decyzja (?:człowieka|obserwatora)\b"
+                          r"|(?:przyjęcie|zgoda)[^:·]*: (?:człowiek|obserwator)\b)")
 BEFORE_ARCHIVE = "(przed archiwum)"
 ARCHIVE_STEP = "archiwum"
 NO_ARCHIVE_STEP = "(bez kroku archiwum)"
 OUTSIDE_FIXES = "Poprawki poza zmianami"
 FIX_SUBJECT = re.compile(r"^fix\(([^()]+)\)!?: ")
-# The table `## Werdykty poprawek`: the number columns of `## Liczby zmian` and the keys of their row values.
-VERDICTS = "Werdykty poprawek"
-VERDICTS_COLUMNS = ("Poprawka", "Liczba", "Kierunek", "Commit poprawki", "Przed", "Po", "Zmiany po", "Werdykt")
-VERDICTS_HEADER = "| " + " | ".join(VERDICTS_COLUMNS) + " |"
-NUMBER_KEYS = {"Minuty": "minutes", "Koszt USD": "cost", "Decyzje": "decisions", "Rundy planu": "plan_rounds",
-               "Rundy kodu": "impl_rounds", "Błędy po scaleniu": "bugs", "Cofnięcia": "undo",
-               "Narzut łańcucha": "overhead"}
-DOWN = "w dół"
-PROPOSALS = "Propozycje"
-PROPOSAL = re.compile(r"^#### P(\d+)\. (.+?)\s*$")
-PROPOSAL_FIELD = re.compile(r"^- \*\*(Co ma się zmienić|Rekomendacja)\*\*:(.*)$")
-FIELD = re.compile(r"^(?P<column>.+?) \((?P<cid>[^():]+): (?P<value>[^()]+)\); kierunek: (?P<direction>w dół|w górę)$")
-# The new shape: old fields have `kierunek: 0 …`, `kierunek: co najwyżej …` and never `kierunek: w…`.
-FIELD_MARK = re.compile(r";\s*kierunek:\s*w\b")
-# A removal and the undo of a removal: `zostaw <id> P<n>` blocks both.
-REMOVAL = re.compile(r"^(?:Usunąć poprawkę|Cofnąć usunięcie) (\S+) P(\d+)$")
-FIXES = "Poprawki z retrospektywy"
-DECISIONS_FILE = os.path.join("context", "foundation", "decisions.md")
-CID_IN_SUBJECT = re.compile(r"\(([^()\s]+)\)")
-WINDOW = 3
-NO_EFFECT_AFTER = 6
 USAGE = "usage: pomiar.py [--repo DIR] [--zmiana <change-id>]"
 
 
@@ -372,6 +336,47 @@ def read_questions(text):
     return questions, undo, sorted(errors)
 
 
+def parse_stop(line):
+    """(krok, zrobiono) of a stop line `- czas: … · krok: … · powód: … · zrobiono: … · skutek: …`; None for
+    any other line. Never an error: old lines of the immutable archive have other shapes."""
+    step = STOP_STEP.search(line) if line.startswith("- ") else None
+    at = line.rfind(STOP_DONE)
+    if step is None or at < 0:
+        return None
+    return step.group(1).strip(), line[at + len(STOP_DONE):].split(STOP_EFFECT, 1)[0].strip()
+
+
+def read_stops(text, heading):
+    """[(krok, zrobiono)] of the stop lines of the `## <heading>` section; None when absent."""
+    lines = section(text, heading)
+    return None if lines is None else [stop for stop in map(parse_stop, lines) if stop]
+
+
+def read_traces(text, questions):
+    """The traces of the interventions of one file: {questions, entries, stops}; `questions` come from
+    read_questions (None without the section), `entries` are the `- **I-<n>` headings of `## Interwencje` and
+    `stops` the lines of `## Zatrzymania autopilota`, each None without its section."""
+    entries = section(text, INTERVENTIONS)
+    return {"questions": questions,
+            "entries": None if entries is None else sum(1 for line in entries if ENTRY.match(line)),
+            "stops": read_stops(text, STOPS)}
+
+
+def interventions(traces, excluded, after_archive=None):
+    """The interventions of one file (D-493): question lines of the human and the observer outside `excluded`, the
+    `I-<n>` entries, the stop lines with an action of the human or the observer outside `excluded` and outside
+    the steps of the counted question lines, and such lines of `after_archive` (the stops after the archive of
+    context/przebiegi/<id>.md); None without any of the four sections."""
+    sources = (traces["questions"], traces["entries"], traces["stops"], after_archive)
+    if all(source is None for source in sources):
+        return None
+    asked = [q["step"] for q in traces["questions"] or [] if q["by"] in INTERVENERS and q["step"] not in excluded]
+    stops = [step for step, done in traces["stops"] or []
+             if HUMAN_ACTION.match(done) and step not in excluded and step not in asked]
+    return (len(asked) + (traces["entries"] or 0) + len(stops)
+            + sum(1 for _, done in after_archive or [] if HUMAN_ACTION.match(done)))
+
+
 def _cells(line):
     return [cell.strip() for cell in line.strip().strip("|").split("|")]
 
@@ -435,58 +440,24 @@ def read_change(folder, repo=None, archived=True):
         raise UsageError(f"{os.path.basename(folder)}: archived_at is not YYYY-MM-DDTHH:MM:SSZ: "
                          f"{meta.get('archived_at', '(missing)')!r}")
     rel = os.path.relpath(path, repo) if repo else path
-    questions, undo, q_errors = read_questions(text)
+    questions, _, q_errors = read_questions(text)
     reviews = os.path.join(folder, "reviews")
     names = [n for n in (os.listdir(reviews) if os.path.isdir(reviews) else [])
              if REPORT_FILE.match(n) and os.path.isfile(os.path.join(reviews, n))]
     kinds = [REPORT_FILE.match(n).group(1) for n in names]
     cid = meta.get("change_id") or os.path.basename(folder)
     cost_errors = []
-    retro = os.path.join(folder, "retro.md")
-    proposals, proposal_errors = read_proposals(retro, os.path.relpath(retro, repo) if repo else retro)
+    run = os.path.join(repo, RUNS, f"{cid}.md") if repo else None
+    after_archive = read_stops(_read(run), STOPS_AFTER_ARCHIVE) if run and os.path.isfile(run) else None
     return {"id": cid,
-            "proposals": proposals,
-            "proposal_errors": proposal_errors,
-            "fixes": section(text, FIXES) or [],
             "folder": folder,
             "archived_at": meta.get("archived_at") if archived else None,
             "costs": read_costs(folder, cid, repo, cost_errors),
             "cost_errors": cost_errors,
             "plan_rounds": kinds.count("plan"),
             "impl_rounds": kinds.count("impl"),
-            "questions": questions,
-            "undo": undo,
+            "interventions": interventions(read_traces(text, questions), CHANGE_NOT_INTERVENTIONS, after_archive),
             "question_errors": [f"{rel}:{n}: {msg}" for n, msg in q_errors]}
-
-
-def read_proposals(path, rel):
-    """([{n, title, column, direction, no}], [`<rel>:<line>: …`]) of the proposals `#### P<n>. <tytuł>` in
-    `## Propozycje` of a retro.md whose `Co ma się zmienić` has a number column and a direction; `no` is
-    `Rekomendacja: nie`. A field with `; kierunek: w…` that does not match is an error; any other is skipped."""
-    found = section_lines(_read(path), PROPOSALS) if os.path.isfile(path) else None
-    proposals, errors, current = [], [], None
-    for n, line in (found[1] if found else []):
-        head = PROPOSAL.match(line)
-        if head or line.startswith("###"):
-            current = {"n": int(head.group(1)), "title": head.group(2), "column": None, "no": False} if head else None
-            if head:
-                proposals.append(current)
-            continue
-        field = PROPOSAL_FIELD.match(line)
-        if current is None or not field:
-            continue
-        value = field.group(2).strip()
-        if field.group(1) == "Rekomendacja":
-            current["no"] = re.match(r"nie\b", value) is not None
-            continue
-        match = FIELD.match(value)
-        if match and match.group("column") in NUMBER_KEYS:
-            current["column"], current["direction"] = match.group("column"), match.group("direction")
-        elif FIELD_MARK.search(value):
-            errors.append(f"{rel}:{n}: " + (f"nieznana kolumna `{match.group('column')}`" if match else
-                                            "pole nie ma kształtu `<kolumna> (<change-id>: <wartość>); kierunek: …`")
-                          + " (kolumny `## Liczby zmian`: " + ", ".join(NUMBER_KEYS) + ")")
-    return [p for p in proposals if p["column"]], errors
 
 
 def read_archive(repo, required=True):
@@ -507,16 +478,16 @@ def read_archive(repo, required=True):
 
 
 def read_start(repo):
-    """The traces of context/foundation/start.md (questions or None, undo kinds, cost rows, errors); None
-    without the file."""
+    """The traces of context/foundation/start.md (interventions or None, cost rows, errors); None without the
+    file."""
     path = os.path.join(repo, START_FILE)
     if not os.path.isfile(path):
         return None
     text = _read(path)
-    questions, undo, q_errors = read_questions(text)
+    questions, _, q_errors = read_questions(text)
     found = []
     costs = cost_rows(section(text, COSTS_SECTION) or [], found)
-    return {"questions": questions, "undo": undo, "costs": costs,
+    return {"interventions": interventions(read_traces(text, questions), START_NOT_INTERVENTIONS), "costs": costs,
             "question_errors": [f"{START_FILE}:{n}: {msg}" for n, msg in q_errors],
             "cost_errors": [f"{START_FILE}: {e}" for e in found]}
 
@@ -565,123 +536,25 @@ def overhead(costs):
     return 100 * (_total(c["cost"] for c in costs if c["step"] != IMPLEMENT_STEP) or 0) / total
 
 
-def change_row(change, subjects, label=None):
+def change_row(change, label=None):
     """The numbers of one change, unrounded, or None for „brak danych”."""
     costs = change["costs"] or []
     seconds = _total(c["seconds"] for c in costs)
     usd = _total(c["cost"] for c in costs)
     minutes = None if seconds is None else seconds / 60
-    questions = change["questions"]
-    decisions = None if questions is None else sum(
-        1 for q in questions if q["by"] == HUMAN and q["step"] != INTENT_STEP)
-    mark = f"(błąd po {change['id']})"
-    bugs = None if subjects is None else sum(1 for s in subjects if mark in s)
     label = label or change["id"]
     if not change.get("archived_at") and costs and not any(c["step"] == ARCHIVE_STEP for c in costs):
         label += f" {NO_ARCHIVE_STEP}"
     return {"id": change["id"], "label": label, "minutes": minutes, "cost": usd,
-            "decisions": decisions, "plan_rounds": change["plan_rounds"], "impl_rounds": change["impl_rounds"],
-            "bugs": bugs, "undo": len(change["undo"]), "overhead": overhead(costs)}
+            "interventions": change["interventions"], "plan_rounds": change["plan_rounds"],
+            "impl_rounds": change["impl_rounds"], "overhead": overhead(costs)}
 
 
-def interventions(questions):
-    """Lines of the human and the observer outside the steps of NOT_INTERVENTIONS; None without the section."""
-    return None if questions is None else sum(
-        1 for q in questions if q["by"] in INTERVENERS and q["step"] not in NOT_INTERVENTIONS)
-
-
-def version_row(start, changes, rows, subjects):
+def version_row(start, changes, rows):
     """The numbers of the version: start.md and the changes of the table, unrounded, or None for „brak danych”."""
-    counts = [n for n in [interventions(start["questions"])] + [interventions(c["questions"]) for c in changes]
-              if n is not None]
-    found = sum(counts) if counts else None
-    bugs = None if subjects is None else sum(r["bugs"] for r in rows)
-    undo = len(start["undo"]) + sum(r["undo"] for r in rows)
+    counts = [n for n in [start["interventions"]] + [c["interventions"] for c in changes] if n is not None]
     costs = list(start["costs"]) + [c for change in changes for c in (change["costs"] or [])]
-    if (found is not None and found > MAX_INTERVENTIONS) or (bugs is not None and bugs > 0) or undo > 0:
-        in_goal = False
-    elif found is not None and bugs is not None:
-        in_goal = True
-    else:
-        in_goal = None
-    return {"changes": len(rows), "interventions": found, "bugs": bugs, "undo": undo, "overhead": overhead(costs),
-            "in_goal": in_goal}
-
-
-def _anchor(prefix, pid, n):
-    """`<prefix><id> P<n>` with a boundary before the id and after the number (`alfa P1` is not `alfa-b P1`
-    nor `alfa P12`)."""
-    return re.compile(prefix + r"(?<![A-Za-z0-9-])" + re.escape(pid) + rf" P{n}(?![0-9])", re.M)
-
-
-def _seconds(archived_at):
-    return datetime.strptime(archived_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
-
-
-def _mean(rows, key):
-    values = [r[key] for r in rows if r[key] is not None]
-    return sum(values) / len(values) if values else None
-
-
-def _judge(before, after, key, direction):
-    """`szkodzi`, `działa` or None (no decision) for the changes after against the changes before."""
-    b, a = _mean(before, key), _mean(after, key)
-    if a is None or b is None:
-        return None
-    higher = any(None not in (_mean(after, k), _mean(before, k)) and _mean(after, k) > _mean(before, k)
-                 for k in ("bugs", "undo"))
-    if higher or (a > b if direction == DOWN else a < b):
-        return "szkodzi"
-    return "działa" if (a < b if direction == DOWN else a > b) else None
-
-
-def verdict(before, after, key, direction):
-    if len(after) < WINDOW or _mean(before, key) is None:
-        return "czeka"
-    for k in range(WINDOW, len(after) + 1):
-        found = _judge(before, after[:k], key, direction)
-        if found == "działa" and _judge(before, after[-WINDOW:], key, direction) != "działa":
-            return "wróciło"
-        if found:
-            return found
-    return "bez skutku" if len(after) >= NO_EFFECT_AFTER else "czeka"
-
-
-def verdict_rows(changes, rows, commits, decisions):
-    """The rows of `## Werdykty poprawek` for the proposals of the archived changes."""
-    first = {}
-    for _, ct, subject in commits:
-        for cid in CID_IN_SUBJECT.findall(subject):
-            first[cid] = min(first.get(cid, ct), ct)
-    archived = [(c, r, _seconds(c["archived_at"])) for c, r in zip(changes, rows) if c["archived_at"]]
-    out = []
-    for change, _, at in archived:
-        pid = change["id"]
-        for p in change["proposals"]:
-            n, mark = p["n"], f"(retro {pid} P{p['n']})"
-            removal = REMOVAL.match(p["title"])
-            if (p["no"] or _anchor(r"^#+ .*Odrzucona propozycja ", pid, n).search(decisions)
-                    or any(s.startswith('Revert "') and mark in s for _, _, s in commits)
-                    or (removal and _anchor("zostaw ", removal.group(1), removal.group(2)).search(decisions))):
-                continue
-            found = [i for i, (_, _, s) in enumerate(commits) if mark in s and not s.startswith('Revert "')]
-            for other in changes:
-                if other["archived_at"] and any(_anchor("", pid, n).search(line) for line in other["fixes"]):
-                    close = re.compile(r"^chore\(archive\): close " + re.escape(other["id"]) + r"(?: \(#\d+\))?$")
-                    found += [i for i, (_, _, s) in enumerate(commits) if close.match(s)]
-            key = NUMBER_KEYS[p["column"]]
-            before, after, sha = [], [], "brak"
-            if found:
-                sha, ct, _ = commits[min(found, key=lambda i: (commits[i][1], i))]
-                before = [r for c, r, t in archived if t < ct][-WINDOW:]
-                after = [r for c, r in zip(changes, rows) if first.get(c["id"], ct) > ct]
-                judged = verdict(before, after, key, p["direction"])
-            else:
-                judged = "nie weszła" if any(t > at for _, _, t in archived) else "czeka"
-            out.append({"fix": f"{pid} P{n}", "column": p["column"], "direction": p["direction"], "commit": sha,
-                        "before": _mean(before, key), "after": _mean(after, key), "count": len(after),
-                        "verdict": judged})
-    return out
+    return {"changes": len(rows), "interventions": sum(counts) if counts else None, "overhead": overhead(costs)}
 
 
 def outside_fixes(commits, ids):
@@ -714,28 +587,22 @@ def _usd(value):
     return NO_DATA if value is None else f"{value:.2f}"
 
 
-def _yes(value):
-    return NO_DATA if value is None else ("tak" if value else "nie")
+def row_cells(row):
+    """The cells of a row of `## Liczby zmian` in the order of CHANGES_COLUMNS."""
+    return (row["label"], _int(row["minutes"]), _usd(row["cost"]), _int(row["interventions"]),
+            str(row["plan_rounds"]), str(row["impl_rounds"]), _pct(row["overhead"]))
 
 
 def render_row(row):
-    cells = (row["label"], _int(row["minutes"]), _usd(row["cost"]), _int(row["decisions"]),
-             str(row["plan_rounds"]), str(row["impl_rounds"]), _int(row["bugs"]), str(row["undo"]),
-             _pct(row["overhead"]))
-    return "| " + " | ".join(cells) + " |"
+    return "| " + " | ".join(row_cells(row)) + " |"
 
 
 def render_version(version):
-    cells = (str(version["changes"]), _int(version["interventions"]), _int(version["bugs"]), str(version["undo"]),
-             _pct(version["overhead"]), _yes(version["in_goal"]))
+    cells = (str(version["changes"]), _int(version["interventions"]), _pct(version["overhead"]))
     return ["", f"## {VERSION}", "", VERSION_HEADER, "|" + "---|" * len(VERSION_COLUMNS), "| " + " | ".join(cells) + " |"]
 
 
-def _avg(value):
-    return NO_DATA if value is None else f"{value:.2f}"
-
-
-def render(rows, verdicts, git_error, fixes=None, version=None):
+def render(rows, fixes=None, version=None):
     out = ["# Pomiar zmian", "", f"- Data: {date.today().isoformat()}", "",
            f"## {CHANGES}", "", CHANGES_HEADER, "|" + "---|" * len(CHANGES_COLUMNS)]
     out += [render_row(r) for r in rows]
@@ -743,15 +610,6 @@ def render(rows, verdicts, git_error, fixes=None, version=None):
                                          f"{len(fixes)}" + (f" ({', '.join(fixes)})" if fixes else ""))]
     if version is not None:
         out += render_version(version)
-    out += ["", f"## {VERDICTS}", ""]
-    if git_error is not None:
-        out.append(f"Brak danych: {git_error}")
-    elif not verdicts:
-        out.append("Brak.")
-    else:
-        out += [VERDICTS_HEADER, "|" + "---|" * len(VERDICTS_COLUMNS)]
-        out += ["| " + " | ".join((v["fix"], v["column"], v["direction"], v["commit"], _avg(v["before"]),
-                                   _avg(v["after"]), str(v["count"]), v["verdict"])) + " |" for v in verdicts]
     return "\n".join(out) + "\n"
 
 
@@ -778,19 +636,14 @@ def main(argv):
     except UsageError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    commits, git_error = git_log(repo)
-    subjects = None if commits is None else [s for _, _, s in commits]
-    rows = [change_row(c, subjects, label) for c, label in zip(changes, labels)]
-    decisions = os.path.join(repo, DECISIONS_FILE)
-    verdicts = [] if commits is None else verdict_rows(
-        changes, rows, commits, _read(decisions) if os.path.isfile(decisions) else "")
+    commits, _ = git_log(repo)
+    rows = [change_row(c, label) for c, label in zip(changes, labels)]
     fixes = None if commits is None else outside_fixes(commits, change_ids(repo, changes))
-    version = None if start is None else version_row(start, changes, rows, subjects)
-    sys.stdout.write(render(rows, verdicts, git_error, fixes, version))
+    version = None if start is None else version_row(start, changes, rows)
+    sys.stdout.write(render(rows, fixes, version))
     sources = ([start] if start is not None else []) + changes
     problems = ([f"BŁĄD PYTANIA: {e}" for c in sources for e in c["question_errors"]]
-                + [f"BŁĄD KOSZTÓW: {e}" for c in sources for e in c["cost_errors"]]
-                + [f"BŁĄD POPRAWKI: {e}" for c in changes for e in c["proposal_errors"]])
+                + [f"BŁĄD KOSZTÓW: {e}" for c in sources for e in c["cost_errors"]])
     if problems:
         sys.stdout.write("\n" + "\n".join(problems) + "\n")
         return 1

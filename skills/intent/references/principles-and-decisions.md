@@ -21,14 +21,13 @@ Rules that settle product questions before anyone asks them. One line per princi
 
 | File | Holds | Who reads it |
 |---|---|---|
-| `context/foundation/decisions.md` (the decision log) | decisions every future change must apply, and decisions on retrospective proposals | `intent`; `retro` (entries of the change, decisions on proposals, rejected proposals) |
-| `context/foundation/limitations.md` (the limitation register) | limitations: findings knowingly left unfixed, each with `Kiedy wrócić` | the triage of `10x-impl-review` and `10x-plan-review` (writes LIMIT entries); `retro` (`Kiedy wrócić`, entries of the change) |
+| `context/foundation/decisions.md` (the decision log) | decisions every future change must apply | `intent`; the analysis across changes |
+| `context/foundation/limitations.md` (the limitation register) | limitations: findings knowingly left unfixed, each with `Kiedy wrócić` | the triage of `10x-impl-review` and `10x-plan-review` (writes LIMIT entries); the analysis across changes (`Kiedy wrócić`) |
 | `context/foundation/decisions-archive.md` (the archive) | closed entries (a fixed limitation, a replaced decision), decisions of one change, and accepted proposals of retrospectives before 2026-11-02 | nobody in ordinary work; a skill that writes an entry reads only its `## D-` headings, for the number |
 
 ### What goes into the log
 
 - A decision future changes must apply: a rule, a format, a threshold, a default behaviour.
-- Every decision on retrospective proposals (accepted and rejected); `retro` reads them in the log.
 - Not a decision on the scope, budget or measurement of one change: it stays in that change's `change.md` ("Decyzje z góry") and plan.
 
 ### Numbering
@@ -61,7 +60,7 @@ Create it at its first entry with its heading: `# Decisions`, `# Limitations` or
 - Zmiana: widok-tygodnia
 ```
 
-- Heading: `## D-<nnn> <topic>`, numbered as "Numbering" says. All three kinds of entry below share this one sequence; the start of the topic and the extra fields tell the kind.
+- Heading: `## D-<nnn> <topic>`, numbered as "Numbering" says. Both kinds of entry below share this one sequence; the start of the topic and the extra fields tell the kind.
 - Fields, one per line, in this order:
   - `Pytanie`: the question in one line;
   - `Wybór`: the answer taken;
@@ -90,45 +89,9 @@ A finding knowingly left unfixed. It lives in the limitation register `context/f
 - Fields in this order: `Pytanie`, `Wybór`, `Kto zdecydował`, `Podstawa`, `Kiedy wrócić`, `Źródło`, `Status`, `Zmiana`.
 - `Kto zdecydował`: `model (<skill>)` for a policy decision, `człowiek` for a limitation the human accepted.
 - `Podstawa`: the report and finding and the policy rule (e.g. `przypadek szczególny` or `bramka 2`); for a human, their words.
-- `Kiedy wrócić`: the condition under which the limitation starts to matter, named so a retrospective can recognise it in a change's traces: a file or directory the change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users).
+- `Kiedy wrócić`: the condition under which the limitation starts to matter, named so the analysis across changes can recognise it in a change's traces: a file or directory the change touches, a skill it changes, an event in its traces (a paid run, a new fixture, a publication, real users).
 - `Źródło`: the change the limitation comes from and the place, in backticks: `<change-id> — \`<path>:<line>\`` or `<change-id> — \`<report>\` F<n>`. `Zmiana` names the change that writes the entry; when the two differ, `Źródło` keeps the origin.
 - Status: `obowiązuje` while the limitation stands; `naprawione w <change-id> (<sha>)` once a change fixes it (only `Status` changes), and that change moves the entry to the archive.
-
-### A decision on retrospective proposals
-
-The human's decision on the proposals of one retrospective that the main session does not apply itself (see the end of this section), plus one separate entry for each rejected proposal.
-
-```markdown
-## D-035 Propozycje retrospektywy etap-8a-polityka-triage
-- Pytanie: które propozycje z `context/archive/2026-10-21-etap-8a-polityka-triage/retro.md` przyjąć?
-- Wybór: przyjęte P1, P2, P4; odrzucone P3 (D-038)
-- Kto zdecydował: człowiek
-- Podstawa: przyjęte przez człowieka; dowody w retro.md
-- Retrospektywa: `context/archive/2026-10-21-etap-8a-polityka-triage/retro.md`
-- Co ma się zmienić: P1: …; P2: …; P4: niesprawdzalne: …
-- Data: 2026-10-22
-- Status: obowiązuje
-- Zmiana: etap-8b-rejestr-ograniczen
-
-## D-038 Odrzucona propozycja etap-8a-polityka-triage P3: Lekcja 5 obejmuje poprawki z review i szuka zasady po znaczeniu
-- Pytanie: czy przyjąć propozycję P3 z `context/archive/2026-10-21-etap-8a-polityka-triage/retro.md`?
-- Wybór: odrzucona
-- Kto zdecydował: człowiek
-- Podstawa: wróć, gdy się powtórzy (`docs/zasady-budowy.md`, punkt 9).
-- Retrospektywa: `context/archive/2026-10-21-etap-8a-polityka-triage/retro.md` P3
-- Data: 2026-10-22
-- Status: obowiązuje
-- Zmiana: etap-8b-rejestr-ograniczen
-```
-
-- Headings: `Propozycje retrospektywy <change-id>` and `Odrzucona propozycja <change-id> P<n>: <proposal title>`.
-- Fields in this order: `Pytanie`, `Wybór`, `Kto zdecydował`, `Podstawa`, `Retrospektywa`, `Co ma się zmienić`, `Data`, `Status`, `Zmiana`.
-- `Retrospektywa`: the full path of the retrospective's output file in backticks; in a rejection, followed by the proposal number.
-- `Co ma się zmienić`: only in the entry with the accepted proposals, and only for accepted proposals that have this field in `retro.md` (`skills/retro/references/retro-format.md`). Each one is `P<n>: <the field from retro.md>`, and they are joined with `; `. The field itself contains `; `, so the line splits into proposals only before `; P<digits>: `. A proposal without the field in `retro.md` (older retrospectives) is left out; when no accepted proposal has it, the line is left out. A rejection never has this line: it gets no verdict.
-- `Data`: the day the human decided (`YYYY-MM-DD`); a retrospective compares later evidence against it.
-- `Podstawa` of a rejection: the human's reason in one sentence.
-
-A proposal that changes only text (`.md`) outside the protected files, which the main session applies after the merge without the human's decision (`docs/sesja-glowna.md`), gets its own entry in the same commit. Heading `Propozycja <change-id> P<n>: <proposal title>`, the same fields in the same order, `Kto zdecydował: sesja główna (retro)`, `Podstawa: zmienia tylko tekst poza plikami chronionymi; skutek mierzy retrospektywa`, `Retrospektywa` followed by the proposal number, and `Zmiana: retro-pr <change-id> P<n>`. When the proposal has a `Co ma się zmienić` field, the entry has it in the same place: the field of that one proposal, without the `P<n>:` prefix, since its number is in `Retrospektywa`.
 
 ## What `intent` writes
 
@@ -136,7 +99,6 @@ A proposal that changes only text (`.md`) outside the protected files, which the
 - Interactive: one entry per question the human answered whose answer future changes must apply, `Kto zdecydował: człowiek`, `Status: obowiązuje`.
 - Unattended: one entry per recommendation that stands in for such an answer, `Kto zdecydował: model (intent)`, `Status: czeka na człowieka`; the same gap has its entry in `## Wymaga Twojej decyzji`.
 - An answer or recommendation about this change alone gets no entry: it stays in "Decyzje z góry" in `change.md`, and unattended also in `## Wymaga Twojej decyzji`.
-- Decisions on retrospective proposals given in the draft: one `Propozycje retrospektywy` entry per retrospective with the accepted proposals, and one `Odrzucona propozycja` entry per rejected proposal with the human's reason. Interactive: `Kto zdecydował: człowiek`, `Status: obowiązuje`. Unattended: `Kto zdecydował: model (intent)`, `Podstawa: szkic człowieka`, `Status: czeka na człowieka`. The path in `Retrospektywa:` and the proposal numbers come from the draft. The `Co ma się zmienić` field of each accepted proposal comes from the `retro.md` at that path: the `retro.md` files named in the draft are the only files of `context/archive/` that `intent` reads.
 - Do not log facts read from files, or the shape of the block.
 
 ## What `intent` reads

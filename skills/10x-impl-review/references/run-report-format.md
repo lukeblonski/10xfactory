@@ -1,6 +1,6 @@
 # Run Report Reference
 
-A run report is the file a run of an implementation skill leaves behind: which commands it actually ran, with what result, on which version of the code. A verifier report is the verbatim output of the verifier agent that `/10x-archive` runs before archiving. Both live in `context/changes/<change-id>/runs/`. `validate_change.py` (owned by `/10x-impl-review`) reads them for rules 2 and 5. `## Progress` in `plan.md` stays the single source of execution state; reports hold evidence, never state.
+A run report is the file a run of an implementation skill leaves behind: which commands it actually ran, with what result, on which version of the code. Run reports live in `context/changes/<change-id>/runs/`. `validate_change.py` (owned by `/10x-impl-review`) reads them for rule 2. `## Progress` in `plan.md` stays the single source of execution state; reports hold evidence, never state.
 
 ## Run report
 
@@ -91,63 +91,3 @@ None.
 - **Criteria**: C1, C2
 - **Reason**: Manual row; needs a human.
 ```
-
-## Verifier report
-
-- **Path**: `context/changes/<change-id>/runs/<YYYY-MM-DD>-<HHMMSS>-verifier.md`. One file per run of the agent.
-- **Writer**: only `/10x-archive`. The verifier agent (`.claude/agents/verifier.md`, installed by `/guardrails`) is read-only, so the skill writes its output.
-- **Header**:
-
-  ```markdown
-  # Verifier report: <change-id>
-
-  - **Skill**: /10x-archive
-  - **Agent**: verifier
-  - **Model**: claude-opus-5-5
-  - **Started**: 2026-10-20T15:02:11+02:00
-  - **Commit**: 7c1d2e4
-  ```
-
-  `Commit` is the `HEAD` the agent ran on; it is for humans, the script does not use it. `Model` is the exact model ID of the session, as in the run report: `verifier.md` has no `model:` field, so the agent runs on the session's model.
-
-- **Section** `## Output`: the agent's output copied verbatim, in the shape fixed by `verifier.md`: a `VERIFY:` line, a `| Criterion | Verdict | Evidence |` table, a `VERDICT:` line. A code fence around it is allowed.
-- **Commit**: `/10x-archive` commits the file alone, as `docs(<change-id>): raport weryfikatora`, before it runs `validate_change.py`.
-- It is not a run report: it has no Observed, Reported or Skipped sections, rule 2 does not read it, and the `Skill` field of the newest run report ignores it.
-
-### Example
-
-````markdown
-# Verifier report: cena-brutto
-
-- **Skill**: /10x-archive
-- **Agent**: verifier
-- **Model**: claude-opus-5-5
-- **Started**: 2026-10-20T15:02:11+02:00
-- **Commit**: 7c1d2e4
-
-## Output
-
-```
-VERIFY: npm run verify -> exit 0
-Tests: 12 passed, 12 total
-
-| Criterion | Verdict | Evidence |
-| --- | --- | --- |
-| C1 | MET | src/pricing.test.ts:14 asserts grossTotal(100, 23) === 123 and grossTotal(0, 23) === 0 |
-| C2 | MET | npm run verify -> exit 0 |
-
-VERDICT: PASS (every criterion MET and verify exit 0)
-```
-````
-
-## Freshness
-
-Rule 5 decides whether every criterion has current evidence:
-
-- Only the newest verifier report counts: the last `runs/*-verifier.md` by file name. Older reports do not count, even with `MET`.
-- The commit of the report is the commit that added the file (`git log --diff-filter=A`). A report without a commit is not evidence.
-- A criterion has evidence when the table has a row with its number, `Verdict` equal to `MET` and non-empty `Evidence` (not `-` or `—`).
-- The evidence is current when the commit of the report is `HEAD` or an ancestor of it, and no later commit changed a file outside `context/`.
-- Rows with numbers outside the criteria block do not matter.
-- Table parsing: rows count also inside a code fence. The first cell is the number with `*` and spaces stripped, the second is the `Verdict` with `*` and spaces stripped, and the rest of the row joined back with `|` is the `Evidence`, because a command in the evidence may contain `|`.
-- The `VERIFY:` and `VERDICT:` lines are for humans; rule 5 reads only the table.

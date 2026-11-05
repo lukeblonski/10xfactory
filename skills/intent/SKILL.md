@@ -5,7 +5,7 @@ description: >
   context/changes/<change-id>/change.md: problem, expected effect, the human's scenario (what the
   person does and sees, step by step), who it affects, constraints,
   what we do not do, decisions made up front, numbered acceptance criteria that a command or the
-  verifier agent can check, risk with a one-sentence reason and, for a change that checks or
+  code review can check, risk with a one-sentence reason and, for a change that checks or
   blocks something, a threat model. Starts the change through /10x-new when the folder does not
   exist. Works unattended (claude -p): instead of asking, it records what is missing for a human.
   Trigger phrases: "ustal intencję", "nowa zmiana", "napisz intencję", "write the intent",
@@ -28,9 +28,9 @@ One path starts a change: `/intent <change-id> <description or draft>`. The skil
 
 ## Co czytam
 
-- **Always:** the argument; the change's `change.md` when it exists; the change's `context/changes/<change-id>/frame.md` (the brief of `/10x-frame`) when it exists; in `context/foundation/`: `prd.md`, `product-principles.md`, the decision log `decisions.md` and `lessons.md` when they exist; `CLAUDE.md` or `AGENTS.md` (the verify command); `references/intent-block.md`, `references/criteria.md`, `references/risk.md`.
-- **Only when needed:** `references/threat-model.md` (the change checks or blocks something); `references/unattended.md` (no human is answering, or before you ask a question: a question takes the shape of its entry); `references/principles-and-decisions.md` (before writing to the decision log); `references/examples.md` (a criterion needs rewording); source files the description names, to confirm a fact instead of asking; each `retro.md` whose path the draft gives with decisions on retrospective proposals, to copy the `Co ma się zmienić` field of the accepted proposals (`references/principles-and-decisions.md`).
-- **Never:** `context/archive/`, except those `retro.md` files; other changes, run reports in `runs/`; the limitation register `context/foundation/limitations.md` and the archive `context/foundation/decisions-archive.md`, except a `grep` of their `## D-` headings for the next number (`references/principles-and-decisions.md`).
+- **Always:** the argument; the change's `change.md` when it exists; the change's `context/changes/<change-id>/frame.md` (the brief of `/10x-frame`) when it exists; in `context/foundation/`: `prd.md`, `product-principles.md` and `lessons.md` when they exist; `CLAUDE.md` or `AGENTS.md` (the verify command); `references/intent-block.md`, `references/criteria.md`, `references/risk.md`.
+- **Only when needed:** the decision log `context/foundation/decisions.md`, by its headings only: list its `## D-` headings (`grep '^## D-' context/foundation/decisions.md`), then open in full just the entries that concern the change's description, that is the same files, the same mechanism or the same words; before a question (step 6), search those headings for the question's topic and open only the matching entries, never the whole log; to append an entry (step 11), the end of the file is enough (Read with `offset`); `references/threat-model.md` (the change checks or blocks something); `references/unattended.md` (no human is answering, or before you ask a question: a question takes the shape of its entry); `references/principles-and-decisions.md` (before writing to the decision log); `references/examples.md` (a criterion needs rewording); source files the description names, to confirm a fact instead of asking.
+- **Never:** `context/archive/`; other changes, run reports in `runs/`; the limitation register `context/foundation/limitations.md` and the archive `context/foundation/decisions-archive.md`, except a `grep` of their `## D-` headings for the next number (`references/principles-and-decisions.md`).
 
 ## Steps
 
@@ -73,7 +73,7 @@ One path starts a change: `/intent <change-id> <description or draft>`. The skil
     - Exit 1: fix the problems it lists and run it again, at most 2 fixes; if it still fails, STOP and show its output.
     - Exit 2: STOP and show its output (a missing file or a missing skill it depends on).
 
-11. **Decision log.** Append to `context/foundation/decisions.md`, as `references/principles-and-decisions.md` describes, only the decisions future changes must apply and the decisions on retrospective proposals: the human's answers to your questions and, unattended, the recommendations you put in place of an answer, when they set a rule, a format, a threshold or a default behaviour for later changes; and the decisions on retrospective proposals the draft gives (accepted and rejected, with the `Retrospektywa:` path and proposal numbers from the draft, and the `Co ma się zmienić` field of the accepted proposals copied from the `retro.md` at that path). Every other answer or recommendation (the scope, budget or measurement of this change) stays in "Decyzje z góry" in `change.md`, and unattended also in `## Wymaga Twojej decyzji`.
+11. **Decision log.** Append to `context/foundation/decisions.md`, as `references/principles-and-decisions.md` describes, only the decisions future changes must apply: the human's answers to your questions and, unattended, the recommendations you put in place of an answer, when they set a rule, a format, a threshold or a default behaviour for later changes. Every other answer or recommendation (the scope, budget or measurement of this change) stays in "Decyzje z góry" in `change.md`, and unattended also in `## Wymaga Twojej decyzji`.
 
 12. **Finish.** Print a short summary and nothing after it:
     - the number of criteria and the risk level with its reason;

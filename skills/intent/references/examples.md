@@ -6,8 +6,8 @@ Each example gives the original, why it is not accepted, and a rewording that ca
 
 - **Worse:** "Every criterion has an entry in the review report that refers to the run report."
 - **Why:** it invents a new kind of evidence (a review entry pointing at a run report) while the problem was only "a criterion is not done without evidence". Review rounds 3 and 4 of that stage looped over how the new entry should look.
-- **Better:** "Before archiving, the newest verifier report in `runs/` has a MET verdict with evidence for every criterion."
-  - Sprawdzenie: polecenie `python3 skills/10x-impl-review/scripts/validate_change.py <change-id> --rules 5`
+- **Better:** "Before archiving, every checked Progress row has an Observed entry with `Exit: 0` in a run report in `runs/`."
+  - Sprawdzenie: polecenie `python3 skills/10x-impl-review/scripts/validate_change.py <change-id> --rules 2`
 
 ## A mechanism instead of an effect (stage 3 of the factory, V7)
 

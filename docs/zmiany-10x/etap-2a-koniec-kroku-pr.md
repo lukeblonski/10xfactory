@@ -2,7 +2,7 @@
 
 - **Zakres:** gałąź `koniec-kroku-pr` od `master` z 2026-11-02 do jej scalenia.
 - **Lista skilli:** `git diff --name-only master...koniec-kroku-pr -- 'skills/10x-*'`.
-- **Źródło:** decyzja człowieka 2026-11-02 o etapie 2a (D-441 w `context/foundation/decisions.md`).
+- **Źródło:** decyzja człowieka 2026-11-02 o etapie 2a (D-441 w `context/foundation/decisions-archive.md`).
 
 Opis nie cytuje skilli. Opis jest dla ludzi: w paczce zmiany w skillach `10x-*` nanosi `scripts/instaluj.py` z przepisu `zmiany-10x.json`.
 

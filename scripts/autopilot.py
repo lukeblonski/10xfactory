@@ -2,15 +2,15 @@
 """Autopilot of one change: leads a change with a finished intent from research to `git push` and the record
 of the run, each agent step in a fresh `claude -p` session.
 
-    python3 scripts/autopilot.py <change-id> [--odpowiedz TEKST | --przyjmij | --krok]
-    python3 <lab>/scripts/autopilot.py --start [--odpowiedz TEKST | --krok]
+    python3 scripts/autopilot.py <change-id> [--odpowiedz TEKST | --przyjmij]
+    python3 <lab>/scripts/autopilot.py --start [--odpowiedz TEKST]
 
 How the main session runs it, reads its state and talks to the human: docs/sesja-glowna.md; the start of an
 application project (--start, START_CHAIN): docs/start-projektu.md. Each step is described at its function.
 
 Steps, in order: start, research, plan, plan-review, implement, impl-review, przygotowanie-wdrozenia
-(prep_attempt), testy-fabryki, wynik-testow, synchronizacja-skilli, archiwum, checkout-master, merge, push,
-wynik-wdrozenia (deploy_result_attempt), zapis-przebiegu. One invocation runs to the end of the nearest
+(prep_attempt), synchronizacja-skilli, archiwum, checkout-master, merge, push, wynik-wdrozenia
+(deploy_result_attempt), zapis-przebiegu. One invocation runs to the end of the nearest
 `claude -p` step and exits. checkout-master keeps its name; it checks out the main branch of the repo (D-253).
 
 State file .autopilot-local/<id>/stan.json: new_state lists its fields, later steps add pliki_chronione and
@@ -28,8 +28,6 @@ What the code does not say on its own:
   application repos; an application step reads only its working folders.
 - In an application repo config_dir() is in denyRead, but the parts Claude Code opens itself (the saved large
   tool results, plugins/) stay readable (D-396).
-- Known narrow risk of --krok: after a run killed with SIGKILL, whose `pid` stays in the state file, a reused
-  pid makes it print the dead run's line while the new invocation refuses with exit code 2.
 """
 
 import argparse
@@ -98,15 +96,9 @@ REFRESH = 30
 # Steps that print the phase line `krok <name>: faza <n> z <total>: <heading>`.
 PHASE_STEPS = ("implement",)
 KILL_WAIT = 10
-# --krok: at most KROK_WAIT seconds of waiting for a running step,
-# which must keep the same krok and log for KROK_SETTLE seconds (so the short command step start is not shown);
-# the state file is read every KROK_POLL seconds. Read at call time, so a test may replace them.
-KROK_WAIT = 30
-KROK_SETTLE = 2
-KROK_POLL = 0.2
 # The laboratory root: the folder above scripts/ of this file,
-# replaced by $AUTOPILOT_LAB (for the tests). The files of the laboratory (check_intent.py, run_evals.sh,
-# skills/, the docs of PLAN_NOTE) come from it; context/, .autopilot-local/, the branch and the commits
+# replaced by $AUTOPILOT_LAB (for the tests). The files of the laboratory (check_intent.py, skills/,
+# the docs of PLAN_NOTE) come from it; context/, .autopilot-local/, the branch and the commits
 # from the repo the autopilot runs in. A repo other than the laboratory is an application repo.
 LAB = "AUTOPILOT_LAB"
 AUTOPILOT = "scripts/autopilot.py"
@@ -115,8 +107,6 @@ CHECK_INTENT = "skills/intent/scripts/check_intent.py"
 MAIN_CANDIDATES = ("master", "main")
 # The steps an application repo skips (D-250), with what the step does not do there.
 APP_SKIPS = {
-    "testy-fabryki": "testy fabryki sprawdzają tylko pliki repo fabryki.",
-    "wynik-testow": "bez testów fabryki nie ma raportów reviews/evals-*.md.",
     "synchronizacja-skilli": "skille do folderu skilli Claude Code synchronizuje tylko repo fabryki.",
 }
 # The checks before the step archiwum, in this order: the Manual rows
@@ -130,7 +120,6 @@ KIND_MERGE = "scalenie"
 CONSENT = "zgoda_scalenia"
 DELETED = "usunięty"
 APP_SKIPPED = "pominięty, repo aplikacji: "
-APP_PROPOSAL = "czeka na człowieka (repo aplikacji: przenieś propozycję do zmiany w repo fabryki)"
 ESCALATIONS = "## Wymaga Twojej decyzji"
 PROGRESS = "## Progress"
 # The trace of the stops in change.md (D-198) and its line.
@@ -159,32 +148,6 @@ CHANGE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 TAIL = 40
 TAIL_CHARS = 4000
 DETAIL_CHARS = 500
-EVALS = "scripts/run_evals.sh"
-EVALS_REPORT = re.compile(r"^evals-.*\.md$")
-# Path prefix -> the factory tests (scripts/run_evals.sh) that check it (docs/zasady-budowy.md, point 8);
-# a folder prefix ends with /, so skills/10x-impl-review/ does not cover skills/10x-impl-review-ci/.
-EVALS_FOR = (
-    ("skills/10x-new/", ("chain", "intent")),
-    ("skills/10x-plan/", ("chain",)),
-    ("skills/10x-goal-implement/", ("chain",)),
-    ("skills/10x-implement/references/", ("chain",)),
-    ("skills/10x-archive/", ("chain",)),
-    ("skills/retro/", ("chain",)),
-    ("skills/10x-plan-review/", ("chain",)),
-    ("skills/10x-impl-review/", ("chain",)),
-    # skills/intent/scripts/check_intent.py loads it for every case of the intent test.
-    ("skills/10x-impl-review/scripts/validate_change.py", ("intent",)),
-    ("skills/intent/", ("intent",)),
-    ("skills/guardrails/", ("guardrails",)),
-    ("scripts/e2e_guardrails.sh", ("guardrails",)),
-    # The chain test runs the autopilot's prompts.
-    ("scripts/autopilot.py", ("chain",)),
-)
-# Files of the factory tests themselves: a change of any of them runs --quick.
-EVALS_FILES = ("scripts/run_evals.sh", "scripts/eval_*.sh", "scripts/evallib.py", "scripts/create_sandbox.sh",
-               "scripts/fixtures/")
-# The order of the tests in the registry of scripts/run_evals.sh.
-EVALS_ORDER = ("guardrails", "chain", "reviewer", "intent")
 SYNC_STEP = "synchronizacja-skilli"
 NO_FOLDER = "pominięty: brak folderu w repo"
 # The step after impl-review: it writes the protected files of the app and the sandbox
@@ -281,9 +244,6 @@ RUN_RECORD = "zapis-przebiegu"
 # The sections of context/przebiegi/<id>.md the record of the run writes.
 STOPS_AFTER = "## Zatrzymania po archiwum"
 NOTHING = "Brak."
-FIELD = r"^- \*\*{name}\*\*:[ \t]*(.*?)[ \t]*$"
-# The proposals of retro.md (skills/retro/references/retro-format.md): `#### P<n>. <title>` under `## Propozycje`.
-PROPOSAL = re.compile(r"^#### P(\d+)\. (.+)$")
 
 RESEARCH_QUESTION = ("Co w repozytorium istnieje, a czego brakuje, żeby spełnić oczekiwany efekt "
                      "i kryteria akceptacji z context/changes/{id}/change.md?")
@@ -376,8 +336,8 @@ CLAUDE_STEPS = {
     "archiwum": (120, lambda cid, lab="": f"/10x-archive {cid}" + step_tail(lab)),
 }
 # Every step of the chain, in its order.
-CHAIN = ("start", "research", "plan", "plan-review", "implement", "impl-review", PREP_STEP, "testy-fabryki",
-         "wynik-testow", SYNC_STEP, "archiwum", "checkout-master", "merge", "push", RESULT_STEP, RUN_RECORD)
+CHAIN = ("start", "research", "plan", "plan-review", "implement", "impl-review", PREP_STEP, SYNC_STEP, "archiwum",
+         "checkout-master", "merge", "push", RESULT_STEP, RUN_RECORD)
 # The steps whose stop line goes to change.md of context/changes/<id>/ (archiwum only before the folder moves);
 # the stop line of every later step (and of archiwum after the move) waits in the field zatrzymania_po_archiwum
 # of the state file for zapis-przebiegu.
@@ -3239,12 +3199,6 @@ def start_commit(run_, name):
     return None
 
 
-def evals_program(lab, env=None):
-    """The factory tests program: $AUTOPILOT_EVALS, or scripts/run_evals.sh of the laboratory."""
-    env = os.environ if env is None else env
-    return env.get("AUTOPILOT_EVALS") or os.path.join(lab, EVALS)
-
-
 def skill_names(paths):
     """Names of the skill folders skills/<name>/ that the changed paths touch, sorted."""
     return sorted({p.split("/")[1] for p in paths if p.startswith("skills/") and p.count("/") >= 2})
@@ -3265,24 +3219,6 @@ def sync_plan(lab, names, skills):
         plan.append((name, ["rsync", "-a", "--delete", source + "/",
                             os.path.join(skills, name) + "/"]))
     return plan
-
-
-def new_evals_reports(porcelain, cid):
-    """Paths of untracked or modified reviews/evals-*.md from `git status --porcelain -z`."""
-    fields, found = porcelain.split("\0"), []
-    prefix = f"context/changes/{cid}/reviews/"
-    i = 0
-    while i < len(fields):
-        entry = fields[i]
-        i += 1
-        if len(entry) < 4:
-            continue
-        if entry[0] in "RC":
-            i += 1
-        path = entry[3:]
-        if path.startswith(prefix) and "/" not in path[len(prefix):] and EVALS_REPORT.match(os.path.basename(path)):
-            found.append(path)
-    return sorted(found)
 
 
 def branch_changes(root, cid, *paths, main):
@@ -3312,66 +3248,11 @@ def failed_check(run_, name, text, result):
 
 
 def path_covered(item, path):
-    """True when an item of EVALS_FOR or EVALS_FILES covers path: the same file, a folder ending with /,
-    or a pattern with * within one folder."""
+    """True when an item of MERGE_FILES covers path: the same file, a folder ending with /, or a pattern with *
+    within one folder."""
     if "*" in item:
         return path.count("/") == item.count("/") and fnmatch.fnmatchcase(path, item)
     return path == item or (item.endswith("/") and path.startswith(item))
-
-
-def evals_args(paths, mapping=EVALS_FOR, files=EVALS_FILES):
-    """The factory tests for the changed paths (docs/zasady-budowy.md, point 8): None when no test checks
-    them, ["--quick"] when a path is a file of the tests themselves, else the names of the tests of every
-    matching prefix, without repeats, in the order of the run_evals.sh registry."""
-    paths = [p for p in paths if p]
-    if any(path_covered(item, p) for p in paths for item in files):
-        return ["--quick"]
-    names = {name for p in paths for prefix, tests in mapping if path_covered(prefix, p) for name in tests}
-    if not names:
-        return None
-    rank = {name: i for i, name in enumerate(EVALS_ORDER)}
-    return sorted(names, key=lambda name: (rank.get(name, len(rank)), name))
-
-
-def evals_attempt(run_):
-    """testy-fabryki: only the factory tests that check the files the branch changes; skipped in an
-    application repo."""
-    root, cid = run_.root, run_.cid
-    early = app_skip(run_, "testy-fabryki") or no_main(run_, "testy-fabryki")
-    if early:
-        return early
-    text, diff = branch_changes(root, cid, main=run_.main)
-    if diff.returncode != 0:
-        return failed_check(run_, "testy-fabryki", text, diff)
-    args = evals_args(diff.stdout.splitlines())
-    if args is None:
-        return skipped(run_, "testy-fabryki", "pominięty, żaden test fabryki nie sprawdza plików zmienionych "
-                                              "przez gałąź.")
-    if args == ["--quick"]:
-        command = [evals_program(run_.lab), "--quick", "--change", cid]
-    else:
-        command = [evals_program(run_.lab), "--change", cid, *args]
-    return commands_attempt(run_, "testy-fabryki", [command])
-
-
-def results_attempt(run_):
-    """wynik-testow: commit the new reports of the factory tests by name; skipped without them and in an
-    application repo."""
-    root, cid = run_.root, run_.cid
-    early = app_skip(run_, "wynik-testow")
-    if early:
-        return early
-    cmd = ["git", "status", "--porcelain", "-z", "--untracked-files=all", "--", f"context/changes/{cid}/reviews/"]
-    found = run(cmd, root)
-    if found.returncode != 0:
-        return failed_check(run_, "wynik-testow", shlex.join(cmd), found)
-    files = new_evals_reports(found.stdout, cid)
-    if not files:
-        return skipped(run_, "wynik-testow", "pominięty, brak nowych plików reviews/evals-*.md.")
-    return commands_attempt(run_, "wynik-testow", [
-        ["git", "add", "--", *files],
-        ["git", "commit", "-q", "-m", f"docs({cid}): wynik testów fabryki", "--", *files],
-    ])
 
 
 def sync_attempt(run_):
@@ -3436,67 +3317,34 @@ def run_record_attempt(run_):
     return commands_attempt(run_, RUN_RECORD, commands)
 
 
-def retro_path(root, cid):
-    """retro.md of the change, next to its change.md (after the archive: context/archive/<date>-<id>/)."""
-    return os.path.join(os.path.dirname(change_md(root, cid)), "retro.md")
-
-
-def proposal_field(block, name):
-    """The value of the one-line `- **<name>**: …` field of a proposal block; None without it."""
-    match = re.search(FIELD.format(name=re.escape(name)), block or "", re.M)
-    return match.group(1) if match and match.group(1) else None
-
-
-def parse_proposals(text):
-    """The proposals of `## Propozycje` of retro.md: dicts with n, title and block (the lines under the heading)."""
-    proposals = []
-    for line in section(text, "## Propozycje"):
-        match = PROPOSAL.match(line)
-        if match:
-            proposals.append({"n": int(match.group(1)), "title": match.group(2).strip(), "lines": []})
-        elif line.startswith("#"):
-            proposals.append(None)
-        elif proposals and proposals[-1] is not None:
-            proposals[-1]["lines"].append(line)
-    return [dict(n=p["n"], title=p["title"], block="\n".join(p["lines"]).strip()) for p in proposals if p]
-
-
-def proposal_lines(proposals, app=False):
-    """One line per proposal: `P<n>. <title> — liczby: <…> — rekomendacja: <…> — miejsce docelowe: <…>`; the
-    parts of the fields a proposal lacks are left out. The main session decides what happens to each
-    (docs/sesja-glowna.md, „Propozycje retrospektywy”). In an application repo (app) every proposal ends with
-    APP_PROPOSAL."""
-    lines = []
-    for proposal in proposals:
-        parts = [f"P{proposal['n']}. {proposal['title']}"]
-        for name, label in (("Liczby", "liczby"), ("Rekomendacja", "rekomendacja"),
-                            ("Miejsce docelowe", "miejsce docelowe")):
-            value = proposal_field(proposal["block"], name)
-            if value:
-                parts.append(f"{label}: {value}")
-        if app:
-            parts.append(APP_PROPOSAL)
-        lines.append(" — ".join(parts))
-    return lines
+def change_numbers(root, cid):
+    """The first line of the list at the end of the run: `liczby zmiany <id>: Minuty: <n> · Koszt USD: <x> ·
+    Interwencje: <n> · Rundy planu: <n> · Rundy kodu: <n> · Narzut łańcucha: <p>`, the row of this change in
+    `## Liczby zmian` of scripts/pomiar.py (pomiar.row_cells), counted in the process from the folder of change_md
+    (the archived one after the archive, with its archived_at); it reads no other change. A bad read
+    (pomiar.UsageError, OSError) gives `liczby zmiany <id>: brak danych (<reason>)` and does not stop the end of
+    the run. Printed without the prefix `autopilot: `."""
+    head = f"liczby zmiany {cid}"
+    folder = os.path.dirname(change_md(root, cid))
+    archived = os.path.normpath(os.path.dirname(folder)) == os.path.normpath(os.path.join(root, "context", "archive"))
+    try:
+        change = pomiar.read_change(folder, root, archived=archived)
+    except (pomiar.UsageError, OSError) as exc:
+        print(f"{head}: {pomiar.NO_DATA} ({exc})", flush=True)
+        return
+    cells = pomiar.row_cells(pomiar.change_row(change))
+    pairs = zip(pomiar.CHANGES_COLUMNS[1:], cells[1:])
+    print(f"{head}: " + FIELD_SEP.join(f"{name}: {value}" for name, value in pairs), flush=True)
 
 
 def end_list(run_):
-    """The list at the end of the run, after zapis-przebiegu: one line per proposal of retro.md, the
-    questions decided by the agent, the stops and self-repairs (the lines of `## Zatrzymania autopilota` of the
-    archived change.md and of `## Zatrzymania po archiwum` of context/przebiegi/<id>.md), the commands of the skill
-    sync before the archive, and the protected files the autopilot wrote, with their diff."""
+    """The list at the end of the run, after zapis-przebiegu: the line of the numbers of the change
+    (change_numbers), the questions decided by the agent, the stops and self-repairs (the lines of
+    `## Zatrzymania autopilota` of the archived change.md and of `## Zatrzymania po archiwum` of
+    context/przebiegi/<id>.md), the commands of the skill sync before the archive, and the protected files the
+    autopilot wrote, with their diff."""
     root, cid = run_.root, run_.cid
-    path = retro_path(root, cid)
-    where = rel(root, path)
-    text = read(path)
-    proposals = parse_proposals(text) if text is not None else []
-    if text is None:
-        say(f"lista propozycji retrospektywy: brak pliku {where}.")
-    elif not proposals:
-        say(f"lista propozycji retrospektywy: {where} nie ma propozycji.")
-    else:
-        say(f"lista propozycji retrospektywy ({where}), jedna linia na propozycję:")
-        print("\n".join(proposal_lines(proposals, run_.app)), flush=True)
+    change_numbers(root, cid)
     agent_decisions(root, cid)
     stops_list(root, cid)
     sync_list(run_.state)
@@ -3518,7 +3366,7 @@ def stops_list(root, cid):
 
 
 def agent_decisions(root, cid):
-    """The list of the change's questions decided by the agent, after the list of proposals: one line
+    """The list of the change's questions decided by the agent, after the line of numbers: one line
     `<rodzaj> — <pytanie> — <rekomendacja>` per line of `## Pytania do człowieka` with `rozstrzygnął: agent`,
     read through pomiar.parse_questions from change_md (the archived change.md after the archive). Without
     such questions one line says so; a bad question line gives one line with its number and does not stop
@@ -4264,7 +4112,7 @@ def prep_run(run_, note):
         return written_stop(run_, written, f"błąd zapisu plików chronionych: {exc}"), None
     paths = sorted(set(written))
     # No scope: the step writes these files after the human's consent, so they are not files of the plan that
-    # rule 6 of validate_change.py checks; the id stays in the subject for `git log --grep` of the retro.
+    # rule 6 of validate_change.py checks; the id stays in the subject for `git log --grep`.
     message = f"chore: pliki chronione po zgodzie ({cid})"
     if not paths:
         note("bez zmian, więc bez commita", show=True)
@@ -4683,8 +4531,6 @@ def command_steps(cid):
     return {
         "start": start_attempt,
         PREP_STEP: prep_attempt,
-        "testy-fabryki": evals_attempt,
-        "wynik-testow": results_attempt,
         SYNC_STEP: sync_attempt,
         "checkout-master": checkout_main_attempt,
         "merge": merge_attempt,
@@ -4938,10 +4784,10 @@ PRE_ARCHIVE_RULES = "1,2,3,4,6,7"
 
 
 def manual_problem(run_):
-    """The reason to stop before archiwum while the change is not finished apart from the verifier report:
-    validate_change.py of the laboratory with every rule but 5 on the change of the repo exits other than 0 (also 2,
+    """The reason to stop before archiwum while the change is not finished:
+    validate_change.py of the laboratory with every rule on the change of the repo exits other than 0 (also 2,
     on missing data), with its output; None on exit 0. A ticked row without its SHA or Observed entry stops
-    here, before the archive step pays for the verifier."""
+    here, before the archive step."""
     cmd = ["python3", os.path.join(run_.lab, VALIDATE), run_.cid, "--repo", run_.root, "--rules", PRE_ARCHIVE_RULES]
     result = run(cmd, run_.root)
     if result.returncode == 0:
@@ -5171,61 +5017,6 @@ def option_problem(args, state, root, path, cid, lab=None, chain=CHAIN, claude_s
     return None, name
 
 
-def running_pair(state):
-    """(krok, log) of the step the state file shows as running: a living pid, krok outside zrobione, krok and
-    log both set; else None. A missing state file (None) shows nothing running yet."""
-    if not state or not alive(state.get("pid")):
-        return None
-    name, log = state.get("krok"), state.get("log")
-    if name is None or log is None or name in (state.get("zrobione") or []):
-        return None
-    return name, log
-
-
-def running_step_line(root, cid, path):
-    """--krok: read the state file, without the lock and without writing anything, until it shows the same
-    running step (running_pair) for KROK_SETTLE seconds; then print its start line in the shape of Run.begin
-    and return 0. Without such a step one line with the reason and 1: after KROK_WAIT seconds, or at once
-    when the invocation it saw alive has ended. An unreadable state file counts as nothing yet (the file may
-    appear between two reads); still unreadable after KROK_WAIT seconds, 2."""
-    start = time.monotonic()
-    deadline = start + KROK_WAIT
-    seen, since, state, error, watched = None, None, None, None, None
-    while True:
-        try:
-            state, error = load_state(path), None
-        except ValueError as exc:
-            state, error = None, exc
-        pid = state.get("pid") if state else None
-        if pid and alive(pid):
-            watched = pid
-        # Ended: the state file no longer has its pid (an ending invocation writes pid null) or the process is gone.
-        ended = watched is not None and ((state is not None and pid != watched) or not alive(watched))
-        pair = running_pair(state)
-        moment = time.monotonic()
-        if pair != seen:
-            seen, since = pair, moment
-        if pair is not None and moment - since >= KROK_SETTLE:
-            say(f"krok {pair[0]}: początek, log {pair[1]}")
-            return 0
-        if ended or moment >= deadline:
-            break
-        time.sleep(max(0, min(KROK_POLL, deadline - moment)))
-    if error is not None and not ended:
-        return refuse(f"plik stanu nie daje się przeczytać przez {KROK_WAIT} s: {error}")
-    if ended:
-        why = f"wywołanie w tle (pid {watched}) już się skończyło"
-    elif state is None:
-        why = f"nie ma pliku stanu {rel(root, path)}"
-    elif seen is not None:
-        why = f"krok {seen[0]} w {rel(root, path)} trwa krócej niż {KROK_SETTLE} s"
-    else:
-        why = f"{rel(root, path)} nie pokazuje kroku, który trwa (żywy pid i krok spoza zrobione)"
-    say(f"brak trwającego kroku zmiany {cid} po {moment - start:.0f} s: {why}; "
-        "poczekaj na koniec wywołania w tle.")
-    return 1
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Lead one change (or the start of an application project) to the "
                                                  "nearest step boundary.")
@@ -5239,8 +5030,6 @@ def main(argv=None):
                          help="resume the session of the stopped claude -p step with the human's answer")
     options.add_argument("--przyjmij", action="store_true",
                          help="the human accepts the stopped step without a new run; the chain goes on")
-    options.add_argument("--krok", action="store_true",
-                         help="read only: wait up to KROK_WAIT s for the running step and print its start line")
     args = parser.parse_args(argv)
     if args.start and args.change_id is not None:
         parser.error(f"z --start nie podaje się change-id: przebieg startu ma identyfikator {START_ID}")
@@ -5263,9 +5052,6 @@ def main(argv=None):
             return refuse(f"{root} nie ma znacznika {MARKER} w głównym folderze, więc nie jest repo aplikacji "
                           "fabryki; --start działa tylko w przygotowanym folderze aplikacji.")
     path = state_path(root, cid)
-    if args.krok:
-        # Before the folder and the lock: --krok takes no lock and writes nothing.
-        return running_step_line(root, cid, path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     lock = open(os.path.join(os.path.dirname(path), LOCK), "a")
     try:

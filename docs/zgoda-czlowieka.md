@@ -1,6 +1,6 @@
 # Zgoda człowieka na poprawki skilli
 
-Ten plik zmienia tylko człowiek. Zmiana, która dotyka ścieżki z `## Ścieżki` albo usuwa krok łańcucha, wymaga zgody człowieka (bramka 2 w `CLAUDE.md`). Propozycja retrospektywy, która ich dotyka, idzie do intencji najbliższej zmiany w repo fabryki (`docs/zasady-budowy.md`, punkt 9).
+Ten plik zmienia tylko człowiek. Zmiana, która dotyka ścieżki z `## Ścieżki` albo usuwa krok łańcucha, wymaga zgody człowieka (bramka 2 w `CLAUDE.md`). Poprawka z analizy w poprzek zmian, która ich dotyka, idzie jako zwykła zmiana ze zgodą człowieka (`docs/zasady-budowy.md`, punkt 9).
 
 ## Ścieżki
 
@@ -20,7 +20,6 @@ Pozycja to plik albo katalog. Katalog kończy się `/` i obejmuje wszystko pod n
 - `scripts/eval_common.sh` — wspólne uruchomienie testów w piaskownicy.
 - `scripts/eval_chain.sh` — test całego przebiegu autopilota w klonie piaskownicy.
 - `scripts/eval_intent.sh` — test `intent`.
-- `scripts/eval_reviewer.sh` — test recenzenta na zasianych błędach.
 - `scripts/e2e_guardrails.sh` — test zabezpieczeń na prawdziwym Claude Code.
 - `scripts/create_sandbox.sh` — piaskownica, w której działają testy.
 
@@ -53,23 +52,4 @@ Zmiana usuwa krok łańcucha, gdy w `git diff --name-status` zmiany plik w `skil
 
 ## Płatne testy skilli
 
-Zmiana pliku z tej listy uruchamia płatny test fabryki (krok `testy-fabryki` autopilota, `docs/zasady-budowy.md`, punkt 8). Plan sumuje średnie koszty testów, które ten krok uruchomi dla zmienianych plików, i pyta człowieka tylko wtedy, gdy suma przekracza budżet z bramki 3 w `CLAUDE.md`. Krok uruchamia każdy test raz, także gdy obejmuje go kilka pozycji, a pozycja z `--quick` zastępuje pozostałe. Koszt to średnia jednego przebiegu z tabeli „Koszt jednego przebiegu” w `docs/testy-fabryki.md`.
-
-- `skills/10x-new/` → `chain` (ok. 2,59 USD), `intent` (ok. 0,57 USD)
-- `skills/10x-plan/` → `chain` (ok. 2,59 USD)
-- `skills/10x-goal-implement/` → `chain` (ok. 2,59 USD)
-- `skills/10x-implement/references/` → `chain` (ok. 2,59 USD)
-- `skills/10x-archive/` → `chain` (ok. 2,59 USD)
-- `skills/retro/` → `chain` (ok. 2,59 USD)
-- `skills/10x-plan-review/` → `chain` (ok. 2,59 USD)
-- `skills/10x-impl-review/` → `chain` (ok. 2,59 USD)
-- `skills/10x-impl-review/scripts/validate_change.py` → `intent` (ok. 0,57 USD)
-- `skills/intent/` → `intent` (ok. 0,57 USD)
-- `skills/guardrails/` → `guardrails` (ok. 0,04 USD)
-- `scripts/e2e_guardrails.sh` → `guardrails` (ok. 0,04 USD)
-- `scripts/autopilot.py` → `chain` (ok. 2,59 USD)
-- `scripts/run_evals.sh` → `--quick` (ok. 5,80 USD)
-- `scripts/eval_*.sh` → `--quick` (ok. 5,80 USD)
-- `scripts/evallib.py` → `--quick` (ok. 5,80 USD)
-- `scripts/create_sandbox.sh` → `--quick` (ok. 5,80 USD)
-- `scripts/fixtures/` → `--quick` (ok. 5,80 USD)
+Zmiana nie uruchamia płatnych testów fabryki (`scripts/run_evals.sh`). Uruchamia je człowiek na żądanie, a sesja przed każdym wydaniem (`docs/zasady-budowy.md`, punkt 8). Krok, plan albo sesja, która sama uruchamia płatny test, sumuje średnie koszty testów, które uruchomi, i pyta człowieka tylko wtedy, gdy suma przekracza budżet z bramki 3 w `CLAUDE.md`. Koszt to średnia jednego przebiegu z tabeli „Koszt jednego przebiegu” w `docs/testy.md`.

@@ -32,7 +32,7 @@ Bold labels start at column 0, in this order, each opening its own paragraph:
 - **C1.** <observable result>
   - Sprawdzenie: polecenie `<command whose exit code decides>`
 - **C2.** <observable result>
-  - Sprawdzenie: weryfikator — <what the verifier reads in the code or sees when it runs a read-only command>
+  - Sprawdzenie: weryfikator — <what the review reads in the code or sees when it runs a read-only command>
 
 **Ryzyko.** Wysokie|Niskie. <one sentence naming the condition from references/risk.md that decided it>
 

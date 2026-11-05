@@ -12,15 +12,12 @@ Rules:
 
 1. every checked Progress row has a SHA of a commit in the history of HEAD;
 2. every checked Progress row has an Observed entry with `Exit: 0` in a run
-   report (runs/*.md other than *-verifier.md);
+   report (runs/*.md);
 3. change.md status is implemented or impl_reviewed and every Automated row
    is checked;
 4. every phase has one `**Criteria**:` line naming existing criteria, every
    criterion has a phase, `## Plan Changes` entries name existing phases and
    criteria, and the criteria block has no format errors;
-5. the newest verifier report (runs/*-verifier.md) is committed, no later
-   commit changes a file outside context/, and it has MET with evidence for
-   every criterion;
 6. every file outside context/ changed by the change's commits (subject
    `<type>(<change-id>): ...`) is in a `**File**:` line of some phase's
    Changes Required or in the `**Files**` of a `## Plan Changes` entry;
@@ -36,15 +33,14 @@ regard to case; commit scopes use the folder name.
 Malformed input is a problem of the rule that reads it, never skipped: a
 checklist line in Progress that is not a step row (rules 1 and 3; rules 2
 and 7 when no row is valid), an unknown `####` heading in Progress (rule 3),
-a bold bullet in the criteria block that is not a criterion (rule 4; rule 5
-when no criterion is valid). No commits of the change is a rule 6 problem
-when a Progress row in scope is checked and --staged is not given; otherwise
-it is a note on stderr.
+a bold bullet in the criteria block that is not a criterion (rule 4). No
+commits of the change is a rule 6 problem when a Progress row in scope is
+checked and --staged is not given; otherwise it is a note on stderr.
 
 Prints one line per problem, `R<n>: <where>: <what>`, sorted by rule. Exit
 codes: 0 no problems; 1 problems; 2 missing files or data only: no change
-folder, change.md or plan.md, no criteria (rules 4, 5), no Progress rows
-(rules 1, 2, 3, 7), no run reports (rule 2), no git repository (rules 1, 5,
+folder, change.md or plan.md, no criteria (rule 4), no Progress rows
+(rules 1, 2, 3, 7), no run reports (rule 2), no git repository (rules 1,
 6), an unreadable file or git failure, or a bad argument.
 """
 
@@ -56,7 +52,7 @@ import re
 import subprocess
 import sys
 
-ALL_RULES = (1, 2, 3, 4, 5, 6, 7)
+ALL_RULES = (1, 2, 3, 4, 6, 7)
 CRITERIA_STARTS = ("**Acceptance criteria.**", "**Kryteria akceptacji.**")
 CRITERION = re.compile(r"^- \*\*([A-Z]+[0-9]+)\.\*\*")
 CRITERION_ID = re.compile(r"^[A-Z]+[0-9]+$")
@@ -73,7 +69,6 @@ ROW_SHA = re.compile(r" — ([0-9a-f]{7,40})\s*$")
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 OBSERVED_FIELDS = ("Step", "Criteria", "Command", "Exit", "Output", "Commit")
 DONE_STATUSES = ("implemented", "impl_reviewed")
-NO_EVIDENCE = ("", "-", "—")
 
 
 class Usage(Exception):
@@ -295,27 +290,6 @@ def parse_run_report(text):
     return False, []
 
 
-def parse_verifier_table(text):
-    """Return {criterion id: (verdict, evidence)} from the agent's table."""
-    rows = {}
-    for line in text.splitlines():
-        cells = line.strip()
-        if not cells.startswith("|"):
-            continue
-        cells = cells[1:]
-        if cells.endswith("|"):
-            cells = cells[:-1]
-        parts = cells.split("|", 2)
-        if len(parts) < 3:
-            continue
-        cid = parts[0].replace("*", "").strip()
-        if not CRITERION_ID.match(cid):
-            continue
-        verdict = parts[1].replace("*", "").strip()
-        rows.setdefault(cid, (verdict, parts[2].strip()))
-    return rows
-
-
 def _expand_braces(span):
     match = re.search(r"\{([^{}]*)\}", span)
     if not match:
@@ -426,9 +400,7 @@ class Change:
         self.change_text = self._read("change.md")
         self.criteria, self.criteria_errors, _ = parse_criteria(self.change_text)
         self.plan = parse_plan(self._read("plan.md"))
-        runs = sorted(glob.glob(os.path.join(self.dir, "runs", "*.md")))
-        self.verifier_reports = [p for p in runs if p.endswith("-verifier.md")]
-        self.run_reports = [p for p in runs if not p.endswith("-verifier.md")]
+        self.run_reports = sorted(glob.glob(os.path.join(self.dir, "runs", "*.md")))
 
     def _read(self, name):
         return read_text(os.path.join(self.dir, name))
@@ -592,46 +564,6 @@ def rule_4(change, phases):
     return problems
 
 
-def rule_5(change, phases):
-    if not change.criteria:
-        return [
-            f"{change.where('change.md')}: no valid acceptance criteria to check "
-            f"({len(change.criteria_errors)} format error(s), see rule 4)"
-        ]
-    if not change.verifier_reports:
-        return [f"{change.rel}/runs/: no verifier report (runs/*-verifier.md)"]
-    newest = change.verifier_reports[-1]
-    rel = change.rel_path(newest)
-    _, out = git(change.repo, "log", "--diff-filter=A", "--format=%H", "HEAD", "--", rel)
-    added = out.split()
-    if not added:
-        return [f"{rel}: the newest verifier report is not committed"]
-    commit = added[-1]
-    if not is_ancestor(change.repo, commit):
-        return [f"{rel}: commit {commit[:7]} of the verifier report is not in the history of HEAD"]
-    _, out = git(
-        change.repo, "log", "--format=%h", f"{commit}..HEAD", "--", ".", ":(exclude)context"
-    )
-    later = out.split()
-    if later:
-        return [
-            f"{rel}: the verifier report (commit {commit[:7]}) is stale: "
-            f"later commits change code: {', '.join(later)}"
-        ]
-    table = parse_verifier_table(read_text(newest))
-    problems = []
-    for cid, _ in change.criteria:
-        if cid not in table:
-            problems.append(f"{rel}: criterion {cid} has no row in the verifier report")
-            continue
-        verdict, evidence = table[cid]
-        if verdict != "MET":
-            problems.append(f"{rel}: criterion {cid} is {verdict or 'without verdict'}: {evidence}")
-        elif evidence in NO_EVIDENCE:
-            problems.append(f"{rel}: criterion {cid} is MET without evidence")
-    return problems
-
-
 def rule_6(change, phases, staged=False):
     commits = change_commits(change.repo, change.id)
     problems = []
@@ -686,7 +618,7 @@ def rule_7(change, phases):
     ]
 
 
-RULES = {1: rule_1, 2: rule_2, 3: rule_3, 4: rule_4, 5: rule_5, 6: rule_6, 7: rule_7}
+RULES = {1: rule_1, 2: rule_2, 3: rule_3, 4: rule_4, 6: rule_6, 7: rule_7}
 
 
 # ------------------------------------------------------------------- main
@@ -727,12 +659,12 @@ def run(argv):
     code, out = git(start, "rev-parse", "--show-toplevel")
     has_git = code == 0
     repo = out.strip() if has_git else os.path.abspath(start)
-    if not has_git and any(r in (1, 5, 6) for r in rules):
+    if not has_git and any(r in (1, 6) for r in rules):
         raise Usage(f"{repo} is not a git repository")
 
     change = Change(repo, args.change_id)
     # Format errors are problems (exit 1); only absent data is exit 2.
-    if not change.criteria and not change.criteria_errors and any(r in (4, 5) for r in rules):
+    if not change.criteria and not change.criteria_errors and any(r == 4 for r in rules):
         raise Usage(f"no acceptance criteria in {change.rel}/change.md")
     if (
         not change.plan["progress"]

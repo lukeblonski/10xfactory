@@ -3,11 +3,11 @@
 A criterion is accepted only when something other than a human's opinion can decide it. Two kinds of check count:
 
 - **A command** (`- Sprawdzenie: polecenie `<command>``): its exit code decides. Prefer the project's verify command from `CLAUDE.md` or `AGENTS.md`, a test file, or a script that already exists. A command that does not exist yet is fine when the change itself adds it (a new test), as long as the criterion names what it proves.
-- **The verifier agent** (`- Sprawdzenie: weryfikator — <what it checks>`): `.claude/agents/verifier.md` reads the code, runs read-only commands and the verify command, and answers MET or NOT MET with evidence. It cannot ask a person, judge taste or watch a user. Describe what it looks at: a file and the behaviour in it, the output of a command, a section of a document.
+- **The code review** (`- Sprawdzenie: weryfikator — <what it checks>`): the full review of `/10x-impl-review` (Step 3) and its closure check read the code, run read-only commands and the verify command, and judge the criterion `spełnione` or `niespełnione` with evidence; an unmet criterion is a finding of the review. It cannot ask a person, judge taste or watch a user. Describe what it looks at: a file and the behaviour in it, the output of a command, a section of a document.
 
-A criterion is checked by a command. Use the verifier only when no command can decide it, and say in one sentence why in its `Sprawdzenie` line.
+A criterion is checked by a command. Use the review's judgment only when no command can decide it, and say in one sentence why in its `Sprawdzenie` line.
 
-A command that the sandbox of a `claude -p` step cannot run (e.g. `claude …`, which fails there with `operation not permitted`) needs a route the verifier can take inside that sandbox. The main session runs the command and writes a run report in `runs/` with its result and the commit it ran on; the criterion is checked by that report and by an empty `git diff <commit> HEAD -- <files the result depends on>`. Write both in its `Sprawdzenie` line. Without that route the verifier answers NOT MET and the archive waits for a human.
+A command that the sandbox of a `claude -p` step cannot run (e.g. `claude …`, which fails there with `operation not permitted`) needs a route the review can take inside that sandbox. The main session runs the command and writes a run report in `runs/` with its result and the commit it ran on; the criterion is checked by that report and by an empty `git diff <commit> HEAD -- <files the result depends on>`. Write both in its `Sprawdzenie` line. Without that route the review judges it `niespełnione` and its finding waits for a human.
 
 ## Not accepted as written
 
@@ -15,7 +15,7 @@ Propose a rewording for each of these; `references/examples.md` shows typical on
 
 1. **A human's judgement or impression.** Words such as "intuicyjny", "czytelny", "ładny", "wygodny", "przyjazny", "szybki" without a number. Nobody but a person can decide them, and the factory does not ask a person to test by hand.
 2. **A mechanism the problem does not need.** The criterion prescribes how instead of what: it names a new channel of evidence, a new mode, a new file format or a new command, while the problem would be solved by an observable effect that existing parts can deliver. Ask: if the effect happened by a simpler route, would the criterion fail? If yes, it prescribes a mechanism.
-3. **Several results in one criterion that could pass and fail separately.** Split it, so a NOT MET points at one thing.
+3. **Several results in one criterion that could pass and fail separately.** Split it, so a `niespełnione` points at one thing.
 4. **A result that depends on the future or on production data** ("users will adopt it", "fewer support tickets"). Reword to what the change itself makes true and checkable now.
 
 ## A good rewording
