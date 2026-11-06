@@ -1,3 +1,5 @@
+> **Archived.** This project is no longer maintained and will not receive updates.
+
 # 10xfactory
 
 Automation for the 10xDevs 3.0 workflow in Claude Code. You describe what you want, approve the important decisions, and the factory runs the rest of the 10x workflow on its own: from an empty folder to a planned, reviewed, tested and merged application.
